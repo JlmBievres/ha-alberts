@@ -1,0 +1,79 @@
+# Correspondance avec les entités Home Assistant des Alberts.
+# ⚠ Les identifiants ci-dessous sont SUPPOSÉS : vérifie-les dans
+#   HA > Outils de développement > États, et corrige-les ici.
+# Pour modifier sans reconstruire l'add-on : copie ce fichier dans
+#   /addon_configs/local_portail_alberts/entities.yaml : relu à chaque requête, sans redémarrage.
+
+seuils:
+  humidite_max: 70        # % : au-delà, conseiller l'extracteur
+  temp_froide: 14         # °C : pièce trop froide
+  temp_gel: 5             # °C : risque gel canalisations
+  temp_chauffe_attendue: 16
+  puissance_min_chauffe: 10   # W : en dessous, le convecteur ne chauffe pas
+
+# Modes fil pilote autorisés pour les voyageurs : valeur HA -> libellé affiché
+modes_autorises:
+  Comfort: "Confort"
+  ComfortMinus1: "Confort −1 °C"
+  Eco: "Éco (absence)"
+  FrostProtection: "Hors-gel (départ)"
+modes_chauffe: [Comfort, ComfortMinus1, ComfortMinus2]
+mode_depart: [Eco, FrostProtection]
+
+pieces:
+  - nom: Chambre Meije
+    mode: select.convecteur_meije_fil_pilote
+    puissance: sensor.convecteur_meije_puissance
+    temperature: sensor.meije_temperature
+    humidite: sensor.meije_humidite
+  - nom: Chambre Écrins
+    mode: select.convecteur_ecrins_fil_pilote
+    puissance: sensor.convecteur_ecrins_puissance
+    temperature: sensor.ecrins_temperature
+    humidite: sensor.ecrins_humidite
+  - nom: Entrée bas
+    mode: select.convecteur_entree_bas_fil_pilote
+    puissance: sensor.convecteur_entree_bas_puissance
+    temperature: sensor.entree_bas_temperature
+    humidite: sensor.entree_bas_humidite
+  - nom: Atelier
+    mode: select.convecteur_atelier_fil_pilote
+    puissance: sensor.convecteur_atelier_puissance
+    temperature: sensor.atelier_temperature
+    humidite: sensor.atelier_humidite
+  - nom: Salle de bain cave
+    mode: select.convecteur_sdb_cave_fil_pilote
+    puissance: sensor.convecteur_sdb_cave_puissance
+    temperature: sensor.sdb_cave_temperature
+    humidite: sensor.sdb_cave_humidite
+    extracteur: switch.extracteur_salle_de_bain_cave
+  - nom: Séjour
+    temperature: sensor.sejour_temperature
+    humidite: sensor.sejour_humidite
+  - nom: Salon
+    temperature: sensor.salon_temperature
+    humidite: sensor.salon_humidite
+
+exterieur:
+  temperature: sensor.exterieur_temperature
+  meteo: weather.les_alberts
+  alerte: sensor.05_weather_alert
+
+# Interrupteurs que le voyageur peut piloter (liste blanche)
+actions_switch:
+  - switch.extracteur_salle_de_bain_cave
+  - switch.deshumidificateur
+
+lumieres:
+  - light.escalier
+  - light.chambre_refuge
+  - light.sejour
+  - light.salon
+  - light.salle_de_bain_cave
+  - light.chevet
+
+portes:
+  - nom: Porte haut
+    entite: binary_sensor.porte_haut
+  - nom: Porte bas
+    entite: binary_sensor.porte_bas
