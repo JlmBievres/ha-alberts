@@ -146,8 +146,9 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt
 const STATUT = {vert:"Tout va bien dans la maison", jaune:"Quelques conseils pour votre séjour",
                 orange:"Une action est à faire", rouge:"Attention, intervention urgente"};
 const COULEUR = {vert:"var(--sapin)", jaune:"#E8C547", orange:"var(--orange)", rouge:"var(--rouge)"};
-const DIAG = {chauffe:["Chauffe","d-chauffe"], anomalie:["Ne chauffe pas","d-anomalie"], "à température":["À température","d-ok", "coupé":["Coupé","d-anomalie"]};
+const DIAG = {chauffe:["Chauffe","d-chauffe"], anomalie:["Ne chauffe pas","d-anomalie"], "à température":["À température","d-ok"], "coupé":["Coupé","d-anomalie"]};
 
+  
 document.querySelectorAll("nav button").forEach(b => b.onclick = () => ouvrir(b.dataset.cible));
 function ouvrir(id){
   document.querySelectorAll("main section").forEach(s => s.hidden = s.id !== id);
