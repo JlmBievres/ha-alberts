@@ -70,7 +70,7 @@ lumieres:
   - light.sejour
   - light.salon
   - light.salle_de_bain_cave
-  - light.chevet
+  - light.chevet_regine
 
 portes:
   - nom: Porte haut

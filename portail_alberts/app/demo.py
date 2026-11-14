@@ -31,6 +31,6 @@ ETATS_DEMO = {
     "light.sejour": _e("off", friendly_name="Séjour"),
     "light.salon": _e("off", friendly_name="Salon"),
     "light.salle_de_bain_cave": _e("off", friendly_name="Salle de bain cave"),
-    "light.chevet": _e("on", friendly_name="Chevet"),
+    "light.chevet_regine": _e("on", friendly_name="Chevet Régine"),
     "binary_sensor.porte_haut": _e("off"), "binary_sensor.porte_bas": _e("off"),
 }
