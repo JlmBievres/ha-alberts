@@ -1,17 +1,17 @@
-# Correspondance avec les entités Home Assistant des Alberts.
-# ⚠ Les identifiants ci-dessous sont SUPPOSÉS : vérifie-les dans
-#   HA > Outils de développement > États, et corrige-les ici.
-# Pour modifier sans reconstruire l'add-on : copie ce fichier dans
-#   /addon_configs/local_portail_alberts/entities.yaml : relu à chaque requête, sans redémarrage.
+# Entités Home Assistant des Alberts (relevées le 14/11/2026).
+# Pour modifier sans toucher au dépôt : copier ce fichier dans
+#   /addon_configs/<id>_portail_alberts/entities.yaml (relu à chaque requête).
+# Vérifier ensuite http://<ip>:8099/sante : "entites_absentes" doit être vide.
 
 seuils:
-  humidite_max: 70        # % : au-delà, conseiller l'extracteur
-  temp_froide: 14         # °C : pièce trop froide
-  temp_gel: 5             # °C : risque gel canalisations
+  humidite_max: 70
+  temp_froide: 14
+  temp_gel: 5
   temp_chauffe_attendue: 16
-  puissance_min_chauffe: 10   # W : en dessous, le convecteur ne chauffe pas
+  puissance_min_chauffe: 10   # W
 
-# Modes fil pilote autorisés pour les voyageurs : valeur HA -> libellé affiché
+# Modes fil pilote proposés aux voyageurs : valeur HA -> libellé.
+# Seuls ceux présents dans l'attribut "options" du select s'affichent.
 modes_autorises:
   Comfort: "Confort"
   ComfortMinus1: "Confort −1 °C"
@@ -22,58 +22,67 @@ mode_depart: [Eco, FrostProtection]
 
 pieces:
   - nom: Chambre Meije
-    mode: select.convecteur_meije_fil_pilote
-    puissance: sensor.convecteur_meije_puissance
-    temperature: sensor.meije_temperature
-    humidite: sensor.meije_humidite
+    mode: select.convecteur_chambre_meije_mode_du_fil_pilote
+    puissance: sensor.convecteur_chambre_meije_demande_instantanee
+    interrupteur: switch.convecteur_chambre_meije
+    temperature: sensor.capteur_ch_meije_temperature
+    humidite: sensor.capteur_ch_meije_humidite
   - nom: Chambre Écrins
-    mode: select.convecteur_ecrins_fil_pilote
-    puissance: sensor.convecteur_ecrins_puissance
-    temperature: sensor.ecrins_temperature
-    humidite: sensor.ecrins_humidite
+    mode: select.convecteur_ecrins_mode_du_fil_pilote
+    puissance: sensor.convecteur_ecrins_demande_instantanee
+    interrupteur: switch.convecteur_ecrins
+    temperature: sensor.capteur_ch_parents_temperature   # À CONFIRMER : capteur "ch parents" = Écrins ?
+    humidite: sensor.capteur_ch_parents_humidite
   - nom: Entrée bas
-    mode: select.convecteur_entree_bas_fil_pilote
-    puissance: sensor.convecteur_entree_bas_puissance
-    temperature: sensor.entree_bas_temperature
-    humidite: sensor.entree_bas_humidite
+    mode: select.convecteur_entree_bas_mode_du_fil_pilote
+    puissance: sensor.convecteur_entree_bas_demande_instantanee
+    interrupteur: switch.convecteur_entree_bas
+    temperature: sensor.capteur_entree_temperature
+    humidite: sensor.capteur_entree_humidite
   - nom: Atelier
-    mode: select.convecteur_atelier_fil_pilote
-    puissance: sensor.convecteur_atelier_puissance
-    temperature: sensor.atelier_temperature
-    humidite: sensor.atelier_humidite
+    mode: select.convecteur_atelier_mode_du_fil_pilote
+    puissance: sensor.convecteur_atelier_demande_instantanee
+    interrupteur: switch.convecteur_atelier
+    temperature: sensor.capteur_atelier_temperature
+    humidite: sensor.capteur_atelier_humidity
   - nom: Salle de bain cave
-    mode: select.convecteur_sdb_cave_fil_pilote
-    puissance: sensor.convecteur_sdb_cave_puissance
-    temperature: sensor.sdb_cave_temperature
-    humidite: sensor.sdb_cave_humidite
-    extracteur: switch.extracteur_salle_de_bain_cave
+    mode: select.convecteur_sdb_cave_mode_du_fil_pilote
+    puissance: sensor.convecteur_sdb_cave_demande_instantanee
+    interrupteur: switch.convecteur_sdb_cave
+    temperature: sensor.capteur_sdbcave_temperature
+    humidite: sensor.capteur_sdbcave_humidity
+    aide_humidite:
+      entite: switch.prise_deshumidificateur_switch_3   # remplacer par l'extracteur quand son id sera connu
+      libelle: "Allumer le déshumidificateur"
   - nom: Séjour
-    temperature: sensor.sejour_temperature
-    humidite: sensor.sejour_humidite
+    temperature: sensor.capteur_sejour_temperature
+    humidite: sensor.capteur_sejour_humidity
   - nom: Salon
-    temperature: sensor.salon_temperature
-    humidite: sensor.salon_humidite
+    temperature: sensor.capteur_salon_temperature
+    humidite: sensor.capteur_salon_humidity
+  - nom: Douche étage
+    temperature: sensor.capteur_douche_etage_temperature
+    humidite: sensor.capteur_douche_etage_humidity
+  - nom: Chambre Refuge
+    temperature: sensor.capteur_ch_refuge_temperature
+    humidite: sensor.capteur_ch_refuge_humidite
 
 exterieur:
-  temperature: sensor.exterieur_temperature
-  meteo: weather.les_alberts
+  temperature: sensor.capteur_exterieur_temperature
+  meteo: weather.val_des_pres
   alerte: sensor.05_weather_alert
-
-# Interrupteurs que le voyageur peut piloter (liste blanche)
-actions_switch:
-  - switch.extracteur_salle_de_bain_cave
-  - switch.deshumidificateur
 
 lumieres:
   - light.escalier
-  - light.chambre_refuge
+  - light.chambre_refuge_groupe
+  - light.chambre_a_coucher
   - light.sejour
   - light.salon
   - light.salle_de_bain_cave
-  - light.chevet_regine
+  - light.strip_entree_lumiere
+  - light.strip_bureau_light
+  - light.hue_go_1
+  - light.hue_lightstrip_1
 
-portes:
-  - nom: Porte haut
-    entite: binary_sensor.porte_haut
-  - nom: Porte bas
-    entite: binary_sensor.porte_bas
+# À compléter quand les identifiants des portes Haut / Bas seront connus
+portes: []

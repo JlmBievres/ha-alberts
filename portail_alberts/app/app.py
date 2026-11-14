@@ -12,7 +12,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import yaml
 
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 ICI = Path(__file__).parent
 DEMO = os.environ.get("DEMO") == "1"
 S6 = Path("/run/s6/container_environment/SUPERVISOR_TOKEN")
@@ -71,7 +71,7 @@ def lire_etats():
 def appel_service(domaine, service, data):
     if DEMO:
         e = CACHE["etats"].setdefault(data["entity_id"], {"state": None, "attributes": {}})
-        e["state"] = data["option"] if service == "select_option" else ("off" if e["state"] == "on" else "on")
+        e["state"] = data["option"] if service == "select_option" else "on"
         return True
     try:
         _ha("POST", f"/services/{domaine}/{service}", data)
@@ -104,7 +104,13 @@ def analyser(CFG):
         t, h = num(p.get("temperature")), num(p.get("humidite"))
         mode, w = etat(p.get("mode")), num(p.get("puissance"))
         diag = None
-        if mode in CFG["modes_chauffe"]:
+        inter = p.get("interrupteur")
+        if inter and etat(inter) == "off":
+            diag = "coupé"
+            alertes.append({"niveau": "orange", "titre": f"Convecteur coupé : {p['nom']}",
+                "texte": "Le convecteur est hors tension, il ne peut pas chauffer.",
+                "action": {"type": "allumer", "entite": inter, "libelle": "Remettre sous tension"}})
+        elif mode in CFG["modes_chauffe"]:
             if w is not None and w >= S["puissance_min_chauffe"]:
                 diag = "chauffe"
             elif t is not None and t < S["temp_chauffe_attendue"]:
@@ -124,10 +130,10 @@ def analyser(CFG):
         if h is not None and h > S["humidite_max"]:
             a = {"niveau": "orange", "titre": f"Humidité élevée : {p['nom']}",
                  "texte": f"{h:.0f} %. Laissez la porte ouverte après la douche et aérez 10 minutes."}
-            ext = p.get("extracteur")
-            if ext and etat(ext) != "on":
-                a["texte"] = f"{h:.0f} % et l'extracteur est arrêté."
-                a["action"] = {"type": "switch", "entite": ext, "libelle": "Allumer l'extracteur"}
+            aide = p.get("aide_humidite")
+            if aide and etat(aide["entite"]) != "on":
+                a["texte"] = f"{h:.0f} %. " + a["texte"]
+                a["action"] = {"type": "allumer", "entite": aide["entite"], "libelle": aide["libelle"]}
             alertes.append(a)
         options = attr(p.get("mode"), "options") or list(CFG["modes_autorises"])
         pieces.append({"nom": p["nom"], "temperature": t, "humidite": h, "mode": mode,
@@ -141,7 +147,7 @@ def analyser(CFG):
             "texte": "Consultez la météo avant de prendre la route ; pneus neige ou chaînes en saison."})
 
     allumees = [attr(l, "friendly_name") or l for l in CFG["lumieres"] if etat(l) == "on"]
-    ouvertes = [d["nom"] for d in CFG["portes"] if etat(d["entite"]) in ("on", "open", "unlocked")]
+    ouvertes = [d["nom"] for d in CFG.get("portes") or [] if etat(d["entite"]) in ("on", "open", "unlocked")]
     pas_eco = [p["nom"] for p in pieces if p["mode"] and p["mode"] not in CFG["mode_depart"]]
     depart = [
         {"texte": "Chauffage en Éco ou Hors-gel dans toutes les pièces", "ok": not pas_eco, "detail": pas_eco},
@@ -161,8 +167,9 @@ def analyser(CFG):
 def _entites(CFG):
     ids = [CFG["exterieur"].get(k) for k in ("temperature", "meteo", "alerte")]
     for p in CFG["pieces"]:
-        ids += [p.get(k) for k in ("mode", "puissance", "temperature", "humidite", "extracteur")]
-    ids += CFG["lumieres"] + [d["entite"] for d in CFG["portes"]] + CFG["actions_switch"]
+        ids += [p.get(k) for k in ("mode", "puissance", "temperature", "humidite", "interrupteur")]
+        ids += [p["aide_humidite"]["entite"]] if p.get("aide_humidite") else []
+    ids += CFG["lumieres"] + [d["entite"] for d in CFG.get("portes") or []]
     return [i for i in ids if i]
 
 
@@ -173,10 +180,12 @@ def action(CFG, q):
         if eid not in {p.get("mode") for p in CFG["pieces"]} or q.get("valeur") not in CFG["modes_autorises"]:
             return 403, {"ok": False, "message": "Action non autorisée"}
         return 200, {"ok": appel_service("select", "select_option", {"entity_id": eid, "option": q["valeur"]})}
-    if q.get("type") == "switch":
-        if eid not in CFG["actions_switch"]:
+    if q.get("type") == "allumer":
+        autorises = {p.get("interrupteur") for p in CFG["pieces"]} | \
+                    {p["aide_humidite"]["entite"] for p in CFG["pieces"] if p.get("aide_humidite")}
+        if not eid or eid not in autorises:
             return 403, {"ok": False, "message": "Action non autorisée"}
-        return 200, {"ok": appel_service("switch", "toggle", {"entity_id": eid})}
+        return 200, {"ok": appel_service(eid.split(".")[0], "turn_on", {"entity_id": eid})}
     return 400, {"ok": False, "message": "Action inconnue"}
 
 
