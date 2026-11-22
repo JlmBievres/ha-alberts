@@ -18,7 +18,7 @@ import guide
 import ha
 import maison
 
-VERSION = "0.2.4"
+VERSION = "0.3.0"
 ICI = Path(__file__).parent
 STATIC = ICI / "static"
 maison.DEMO = os.environ.get("DEMO") == "1"
@@ -37,8 +37,8 @@ def charger_config():
     if _CFG["cle"] != cle:
         cfg = yaml.safe_load(p.read_text(encoding="utf-8"))
         _CFG["alerte"] = None
-        if cfg.get("version") != 2:
-            _CFG["alerte"] = f"{p} est à l'ancien format : modèle livré utilisé à la place. Reprendre le modèle 0.2."
+        if cfg.get("version") != 3:
+            _CFG["alerte"] = f"{p} est à l'ancien format : modèle livré utilisé à la place. Reprendre le modèle 0.3."
             print(_CFG["alerte"], flush=True)
             p = ICI / "entities.yaml"
             cfg = yaml.safe_load(p.read_text(encoding="utf-8"))
@@ -97,13 +97,9 @@ class Handler(BaseHTTPRequestHandler):
             d = maison.analyser(CFG)
             d.update(version=VERSION, horodatage=maison.CACHE["horodatage"], a_jour=frais)
             return self._envoyer(200, d)
-        if chemin == "/api/conso":
-            return self._json_calcul(lambda: CACHE.get("conso", 600, lambda: maison.consommation(CFG)))
-        if chemin == "/api/convecteur":
-            pid, mois = q.get("id", ""), q.get("mois")
-            if mois and not (len(mois) == 7 and mois[4] == "-" and mois.replace("-", "").isdigit()):
-                return self._envoyer(400, {"erreur": "mois invalide"})
-            return self._json_calcul(lambda: CACHE.get(f"conv:{pid}:{mois}", 300, lambda: maison.convecteur(CFG, pid, mois)))
+        if chemin == "/api/prises":
+            _etats_frais()
+            return self._envoyer(200, maison.prises(CFG))
         if chemin == "/api/meteo":
             _etats_frais()
             return self._json_calcul(lambda: CACHE.get("meteo", 900, lambda: maison.meteo(CFG)))

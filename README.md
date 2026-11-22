@@ -1,9 +1,10 @@
 # Applications Home Assistant - Les Alberts
 
-## Portail Les Alberts (0.2)
+## Portail Les Alberts (0.3, version simple)
 Portail voyageurs pour tablette murale et smartphone, sur le réseau local :
-pilotage des pièces (chauffage et lumières), consommation, météo, arrivée,
-départ avec fermeture de la maison, guide de la maison.
+lumières par pièce (interrupteur, ambiances, lampe par lampe), chauffage en
+4 modes, météo, guide de la maison, état des prises en lecture seule.
+L'arrivée et le départ (mise en route, fermeture) se gèrent dans Home Assistant.
 
 - Portail : `http://<ip-ha>:8099`
 - Diagnostic : `http://<ip-ha>:8099/sante`

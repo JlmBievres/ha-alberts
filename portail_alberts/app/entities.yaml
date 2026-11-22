@@ -1,4 +1,4 @@
-# Portail Les Alberts : description de la maison (format 2, application 0.2).
+# Portail Les Alberts : description de la maison (format 3, application 0.3 « version simple »).
 #
 # Le portail ne peut agir QUE sur ce qui est décrit ici (liste blanche).
 # Pour l'adapter sans toucher au dépôt : copier ce fichier dans
@@ -8,7 +8,7 @@
 # Ne JAMAIS décrire la prise de la box, des Pi ou du coordinateur Zigbee.
 # Aucune donnée secrète ici : ce fichier est dans un dépôt public.
 
-version: 2
+version: 3
 
 seuils:
   humidite_max: 70          # % : alerte humidité
@@ -17,24 +17,20 @@ seuils:
   temp_chauffe_attendue: 16 # °C : en Confort sous ce seuil sans consommer = « ne chauffe pas »
   puissance_min_chauffe: 10 # W
 
-# Tarifs EDF (à confirmer) : sert aux estimations en euros.
-tarifs:
-  heures_creuses: 0.21      # €/kWh
-  heures_pleines: 0.27      # €/kWh
-  plages_creuses: ["22:00-06:00"]
-
-# Modes fil pilote : valeur Home Assistant -> libellé et explication.
-# Seuls ceux présents dans l'attribut "options" du select sont proposés.
+# Chauffage simplifié : 4 modes seulement (valeur Home Assistant -> libellé, sous-titre)
 modes:
-  Comfort: {libelle: "Confort", aide: "la température réglée sur le convecteur."}
-  ComfortMinus1: {libelle: "Confort −1 °C", aide: "un degré de moins que la température réglée sur le convecteur. Idéal la nuit."}
-  ComfortMinus2: {libelle: "Confort −2 °C", aide: "deux degrés de moins. Pour une pièce peu utilisée."}
-  Eco: {libelle: "Éco", aide: "environ 3,5 °C de moins. Pour une absence de la journée."}
-  FrostProtection: {libelle: "Hors-gel", aide: "maintient environ 7 °C. Pour une pièce inoccupée ou au départ."}
-  "Off": {libelle: "Arrêt", aide: "le convecteur ne chauffe plus du tout."}
-modes_chauffe: [Comfort, ComfortMinus1, ComfortMinus2]
-mode_depart: FrostProtection        # mode appliqué par « Tout arrêter » et à la fermeture
+  Comfort: {libelle: "Confort", sous: "Journée"}
+  ComfortMinus1: {libelle: "Nuit", sous: "−1 °C"}
+  Eco: {libelle: "Éco", sous: "Absence"}
+  FrostProtection: {libelle: "Hors-gel", sous: "Pièce fermée"}
+modes_chauffe: [Comfort, ComfortMinus1]
 prechauffage: input_boolean.booleen_convecteur_tarif_nuit   # préchauffage heures creuses
+
+# Ambiances d'éclairage (luminosité appliquée à toutes les lampes de la pièce)
+ambiances:
+  - {id: vive, nom: "Vive", pct: 100}
+  - {id: douce, nom: "Douce", pct: 50}
+  - {id: veilleuse, nom: "Veilleuse", pct: 15}
 
 meteo:
   entite: weather.val_des_pres
@@ -186,144 +182,28 @@ pieces:
       - "La nuit, un détecteur allume au passage et éteint 2 minutes après le dernier mouvement."
       - "Boutons poussoirs : un clic pleine puissance, double clic demi-puissance, appui long extinction."
 
-# Appareils commandés par une prise ou une passerelle.
-#   voyageur: true         visible et utilisable par les voyageurs
-#   peut_eteindre: false   le bouton du portail ne peut qu'allumer
-#   alimentation           prise qui alimente l'appareil (ou sa passerelle) : allumée d'abord,
-#                          le portail attend que l'appareil réponde, puis l'actionne
-#   arrivee: true          allumé par « Terminer la mise en route »
-#   depart: immediat|differe|garder   à la fermeture : coupé tout de suite, après le
-#                          compte à rebours, ou laissé tel quel
-#   couper_alimentation    à la fermeture, coupe aussi la prise d'alimentation
-commandes:
-  - id: eau_chaude
-    nom: Eau chaude
-    icone: goutte
-    entite: switch.atelier_chauffe_eau
-    alimentation: switch.prise_chauffe_eau_switch_3   # prise du boîtier Tydom
-    alimentation_nom: "boîtier Tydom"
-    delai_max: 300
-    etat_on: "Mode nuit, heures creuses"
-    etat_off: "Arrêtée"
-    etat_veille: "Arrêtée, maison fermée"
-    bouton_on: "Mode nuit"
-    bouton_off: "Arrêter"
-    explication: "En mode nuit, le ballon chauffe uniquement aux heures creuses. Après la mise en route, comptez une nuit pour avoir de l'eau chaude."
-    voyageur: true
-    peut_eteindre: true
-    arrivee: true
-    depart: immediat
-    couper_alimentation: differe
-  - id: wifi
-    nom: WiFi
-    icone: wifi
-    entite: switch.prise_wi_fi_tableau_commutateur
-    etat_on: "Allumé"
-    etat_off: "Éteint"
-    bouton_on: "Allumer"
-    explication: "Le WiFi est coupé quand la maison est vide. Il se coupe en dernier à la fermeture."
-    voyageur: true
-    peut_eteindre: false   # l'éteindre couperait l'accès à ce portail
-    arrivee: true
-    depart: differe
-  - id: wifi_sejour
-    nom: WiFi séjour
-    entite: switch.prise_wi_fi_sejour_commutateur
-    etat_on: "Allumé"
-    voyageur: false
-    peut_eteindre: false
-    arrivee: true
-    depart: differe
-  - id: hue
-    nom: Éclairage connecté et télévision
-    entite: switch.prise_television_switch_3          # « Prise Télévision » : pont Hue + TV
-    etat_on: "Allumé"
-    voyageur: false
-    arrivee: true
-    depart: differe
-  - id: poele_sejour
-    nom: Poêle du séjour (prise)
-    entite: switch.prise_poele_salon_switch_3          # « Prise poele Séjour »
-    etat_on: "Console alimentée"
-    voyageur: false
-    arrivee: true
-    depart: refroidissement  # coupée seulement quand le poêle ne ventile plus
-    puissance: sensor.prise_poele_salon_active_power_3
-  - id: poele_salon
-    nom: Poêle du salon (prise)
-    entite: switch.tz3000_2putqrmw_ts011f_switch       # « Prise Poele Salon »
-    etat_on: "Console alimentée"
-    voyageur: false
-    arrivee: true
-    depart: refroidissement
-    puissance: sensor.tz3000_2putqrmw_ts011f_active_power
-  - id: entree_haute
-    nom: Prise entrée haute
-    entite: switch.prise_entree_basse_switch           # nommée « Prise entrée haute » dans HA
-    etat_on: "Allumée"
-    voyageur: false
-    arrivee: true
-    depart: differe
-  - id: entree_basse
-    nom: Prise entrée basse
-    entite: switch.prise_wi_fi_salon_commutateur       # nommée « Prise Entrée Bas » dans HA
-    etat_on: "Allumée"
-    voyageur: false
-    arrivee: true
-    depart: differe
-  # WiFi de la Livebox (radio seulement : la box reste allumée, Home Assistant
-  # reste joignable par le câble et Tailscale pour tout rallumer à distance).
-  - id: wifi_box
-    nom: WiFi de la Livebox
-    entite: switch.livebox_nautilus_wifi
-    etat_on: "Allumé"
-    voyageur: false
-    peut_eteindre: false
-    arrivee: true
-    depart: differe
-  - id: wifi_box_invite
-    nom: WiFi invité de la Livebox
-    entite: switch.livebox_nautilus_guest_wifi
-    etat_on: "Allumé"
-    voyageur: false
-    peut_eteindre: false
-    arrivee: false         # rallumé à la main si besoin
-    depart: differe
-# Volontairement absents : déshumidificateur, extracteur de la salle de bain cave,
-# accès Internet des répéteurs, prise de la box, Pi, coordinateur Zigbee.
-
-fermeture:
-  delai_s: 120              # compte à rebours avant les coupures différées
-  poeles_seuil_w: 15        # sous ce seuil pendant 10 min, le poêle ne ventile plus
-  poeles_delai_min: 60      # sans mesure de puissance : coupure 60 min après la fermeture
-  poeles_delai_max_min: 180 # avec mesure : coupure au plus tard après 3 h
-
-# Gestes manuels de la liste de départ (cochés par les voyageurs).
-depart_gestes:
-  - groupe: "Poêles à granulés"
-    couleur: poele
-    gestes:
-      - {t: "Poêles éteints et refroidis", x: "Attendre 20 à 30 min après l'extinction."}
-      - {t: "Nettoyés", x: "Corps de chauffe, vitre, brûleur, cendrier."}
-      - {t: "Remplis de granulés", x: "Pour le prochain séjour."}
-      - {t: "Poêles arrêtés depuis leur console", x: "La maison coupera leur prise une fois refroidis, jamais avant."}
-  - groupe: "Radiateurs électriques"
-    couleur: radiateur
-    gestes:
-      - {t: "Sélecteurs en position pilotée", x: "Sur chaque convecteur, sinon ils ne seront plus commandables."}
-  - groupe: "Maison"
-    couleur: maison
-    gestes:
-      - {t: "Machine à laver : eau coupée, débranchée"}
-      - {t: "Lave-vaisselle vide, machine à café nettoyée"}
-      - {t: "Four et lave-vaisselle disjonctés"}
-      - {t: "Réfrigérateur arrêté, portes ouvertes"}
-      - {t: "Poubelles emportées"}
-      - {t: "Draps rangés, volets fermés"}
-      - {t: "Portes fermées, clés rangées"}
-
-arrivee_etapes:
-  - {t: "Récupérer les clés", x: "Suivez la procédure affichée sur la boîte à clés."}
-  - {t: "Remplir les poêles", x: "Sacs de granulés en bas ou dans la pièce commune."}
-  - {t: "Chauffer les pièces utilisées", x: "Allumez seulement les radiateurs des pièces occupées.", lien: "#/chauffage", bouton: "Choisir les pièces"}
-  - {t: "Faire les lits", x: "Voir le guide, fiche « Faire les lits »."}
+# État des prises : LECTURE SEULE (le portail ne les commande jamais).
+# Les prises se pilotent depuis Home Assistant.
+prises:
+  - groupe: Chauffage
+    prises:
+      - {nom: "Poêle du séjour", entite: switch.prise_poele_salon_switch_3, puissance: sensor.prise_poele_salon_active_power_3}
+      - {nom: "Poêle du salon", entite: switch.tz3000_2putqrmw_ts011f_switch, puissance: sensor.tz3000_2putqrmw_ts011f_active_power}
+  - groupe: Eau chaude
+    prises:
+      - {nom: "Boîtier Tydom et bandeau du bureau", entite: switch.prise_chauffe_eau_switch_3}
+      - {nom: "Chauffe-eau, mode nuit", entite: switch.atelier_chauffe_eau}
+  - groupe: Internet et WiFi
+    prises:
+      - {nom: "WiFi de la Livebox", entite: switch.livebox_nautilus_wifi}
+      - {nom: "WiFi tableau", entite: switch.prise_wi_fi_tableau_commutateur}
+      - {nom: "WiFi séjour", entite: switch.prise_wi_fi_sejour_commutateur}
+  - groupe: Éclairage et télévision
+    prises:
+      - {nom: "Pont Hue et télévision", entite: switch.prise_television_switch_3}
+      - {nom: "Prise entrée haute", entite: switch.prise_entree_basse_switch}
+      - {nom: "Prise entrée basse", entite: switch.prise_wi_fi_salon_commutateur}
+  - groupe: Confort
+    prises:
+      - {nom: "Déshumidificateur", entite: switch.prise_deshumidificateur_switch_3}
+      - {nom: "Extracteur salle de bain cave", entite: light.commande_vmc}
