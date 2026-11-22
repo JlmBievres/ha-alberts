@@ -1,7 +1,7 @@
 name: Portail Les Alberts
-version: "0.1.1"
+version: "0.2.0"
 slug: portail_alberts
-description: Portail voyageurs - infos maison, consignes, arrivee et depart
+description: Portail voyageurs - pilotage des pièces, chauffage, météo, arrivée, départ et guide
 arch:
   - aarch64
   - amd64
@@ -12,9 +12,15 @@ homeassistant_api: true
 watchdog: "tcp://[HOST]:[PORT:8099]"
 ports:
   8099/tcp: 8099
+ports_description:
+  8099/tcp: Portail voyageurs (réseau local)
 map:
   - addon_config:rw
 options:
-  diagnostic: true
+  guide_depot: ""
+  guide_branche: main
+  guide_heure: 4
 schema:
-  diagnostic: bool
+  guide_depot: str?
+  guide_branche: str
+  guide_heure: int(0,23)

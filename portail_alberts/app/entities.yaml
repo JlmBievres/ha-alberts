@@ -1,88 +1,273 @@
-# Entités Home Assistant des Alberts (relevées le 14/11/2026).
-# Pour modifier sans toucher au dépôt : copier ce fichier dans
-#   /addon_configs/<id>_portail_alberts/entities.yaml (relu à chaque requête).
-# Vérifier ensuite http://<ip>:8099/sante : "entites_absentes" doit être vide.
+# Portail Les Alberts : description de la maison (format 2, application 0.2).
+#
+# Le portail ne peut agir QUE sur ce qui est décrit ici (liste blanche).
+# Pour l'adapter sans toucher au dépôt : copier ce fichier dans
+#   /addon_configs/<id>_portail_alberts/entities.yaml  (relu toutes les 10 s)
+# puis vérifier http://<ip>:8099/sante : "entites_absentes" doit être vide.
+#
+# Ne JAMAIS décrire la prise de la box, des Pi ou du coordinateur Zigbee.
+# Aucune donnée secrète ici : ce fichier est dans un dépôt public.
+
+version: 2
 
 seuils:
-  humidite_max: 70
-  temp_froide: 14
-  temp_gel: 5
-  temp_chauffe_attendue: 16
-  puissance_min_chauffe: 10   # W
+  humidite_max: 70          # % : alerte humidité
+  temp_froide: 14           # °C : pièce froide
+  temp_gel: 5               # °C : risque de gel
+  temp_chauffe_attendue: 16 # °C : en Confort sous ce seuil sans consommer = « ne chauffe pas »
+  puissance_min_chauffe: 10 # W
 
-# Modes fil pilote proposés aux voyageurs : valeur HA -> libellé.
-# Seuls ceux présents dans l'attribut "options" du select s'affichent.
-modes_autorises:
-  Comfort: "Confort"
-  ComfortMinus1: "Confort −1 °C"
-  Eco: "Éco (absence)"
-  FrostProtection: "Hors-gel (départ)"
+# Tarifs EDF (à confirmer) : sert aux estimations en euros.
+tarifs:
+  heures_creuses: 0.21      # €/kWh
+  heures_pleines: 0.27      # €/kWh
+  plages_creuses: ["22:00-06:00"]
+
+# Modes fil pilote : valeur Home Assistant -> libellé et explication.
+# Seuls ceux présents dans l'attribut "options" du select sont proposés.
+modes:
+  Comfort: {libelle: "Confort", aide: "la température réglée sur le convecteur."}
+  ComfortMinus1: {libelle: "Confort −1 °C", aide: "un degré de moins que la température réglée sur le convecteur. Idéal la nuit."}
+  ComfortMinus2: {libelle: "Confort −2 °C", aide: "deux degrés de moins. Pour une pièce peu utilisée."}
+  Eco: {libelle: "Éco", aide: "environ 3,5 °C de moins. Pour une absence de la journée."}
+  FrostProtection: {libelle: "Hors-gel", aide: "maintient environ 7 °C. Pour une pièce inoccupée ou au départ."}
+  "Off": {libelle: "Arrêt", aide: "le convecteur ne chauffe plus du tout."}
 modes_chauffe: [Comfort, ComfortMinus1, ComfortMinus2]
-mode_depart: [Eco, FrostProtection]
+mode_depart: FrostProtection        # mode appliqué par « Tout arrêter » et à la fermeture
+prechauffage: input_boolean.booleen_convecteur_tarif_nuit   # préchauffage heures creuses
 
+meteo:
+  entite: weather.val_des_pres
+  vigilance: sensor.05_weather_alert
+  temperature_exterieure: sensor.capteur_exterieur_temperature
+  soleil: sun.sun
+  lieu: "Val-des-Prés"
+
+# Portes d'entrée : capteurs d'ouverture (on/open = ouverte). Identifiants à renseigner.
+portes: []
+#  - {nom: "Haut", entite: binary_sensor.A_RENSEIGNER_porte_haut}
+#  - {nom: "Bas", entite: binary_sensor.A_RENSEIGNER_porte_bas}
+
+# Pièces. type : convecteur | poele | sans_chauffage | passage
+#   lampes : chaque lampe pilotable (light.* ou switch.*) ; minuterie_min : bouton « Allumer N min »
+#   ventilation : entité + maintien (minutes) ; le portail la relance tant que dure le maintien
+#   poele.prise : prise qui alimente le poêle (lecture seule, jamais coupée par le portail)
 pieces:
-  - nom: Chambre Meije
-    mode: select.convecteur_chambre_meije_mode_du_fil_pilote
-    puissance: sensor.convecteur_chambre_meije_demande_instantanee
-    interrupteur: switch.convecteur_chambre_meije
-    temperature: sensor.capteur_ch_meije_temperature
-    humidite: sensor.capteur_ch_meije_humidite
-  - nom: Chambre Écrins
-    mode: select.convecteur_ecrins_mode_du_fil_pilote
-    puissance: sensor.convecteur_ecrins_demande_instantanee
-    interrupteur: switch.convecteur_ecrins
-    temperature: sensor.capteur_ch_parents_temperature   # À CONFIRMER : capteur "ch parents" = Écrins ?
-    humidite: sensor.capteur_ch_parents_humidite
-  - nom: Entrée bas
-    mode: select.convecteur_entree_bas_mode_du_fil_pilote
-    puissance: sensor.convecteur_entree_bas_demande_instantanee
-    interrupteur: switch.convecteur_entree_bas
-    temperature: sensor.capteur_entree_temperature
-    humidite: sensor.capteur_entree_humidite
-  - nom: Atelier
-    mode: select.convecteur_atelier_mode_du_fil_pilote
-    puissance: sensor.convecteur_atelier_demande_instantanee
-    interrupteur: switch.convecteur_atelier
-    temperature: sensor.capteur_atelier_temperature
-    humidite: sensor.capteur_atelier_humidity
-  - nom: Salle de bain cave
-    mode: select.convecteur_sdb_cave_mode_du_fil_pilote
-    puissance: sensor.convecteur_sdb_cave_demande_instantanee
-    interrupteur: switch.convecteur_sdb_cave
-    temperature: sensor.capteur_sdbcave_temperature
-    humidite: sensor.capteur_sdbcave_humidity
-    aide_humidite:
-      entite: switch.prise_deshumidificateur_switch_3   # remplacer par l'extracteur quand son id sera connu
-      libelle: "Allumer le déshumidificateur"
-  - nom: Séjour
+  - id: sejour
+    nom: Séjour
+    type: poele
     temperature: sensor.capteur_sejour_temperature
     humidite: sensor.capteur_sejour_humidity
-  - nom: Salon
+    poele: {prise: null}            # À RENSEIGNER : prise du poêle Hoben du séjour
+    lampes:
+      - {id: plafonnier, nom: "Plafonnier, 4 ampoules", entite: light.sejour}
+
+  - id: salon
+    nom: Salon
+    type: poele
     temperature: sensor.capteur_salon_temperature
     humidite: sensor.capteur_salon_humidity
-  - nom: Douche étage
-    temperature: sensor.capteur_douche_etage_temperature
-    humidite: sensor.capteur_douche_etage_humidity
-  - nom: Chambre Refuge
+    poele: {prise: null}            # À RENSEIGNER : prise du poêle Hoben du salon
+    lampes:
+      - {id: plafonnier, nom: "Plafonnier, 4 lampes", entite: light.salon}
+      - {id: huego, nom: "Hue Go", entite: light.hue_go_1}
+      - {id: bandeau, nom: "Bandeau du meuble", entite: light.hue_lightstrip_1}
+
+  - id: meije
+    nom: Chambre Meije
+    type: convecteur
+    temperature: sensor.capteur_ch_meije_temperature
+    humidite: sensor.capteur_ch_meije_humidite
+    convecteur:
+      mode: select.convecteur_chambre_meije_mode_du_fil_pilote
+      puissance: sensor.convecteur_chambre_meije_demande_instantanee
+      interrupteur: switch.convecteur_chambre_meije
+      energie: sensor.convecteur_chambre_meije_consommation
+      modele: "À renseigner"
+    lampes: []
+    conseils:
+      - "Le sélecteur du convecteur doit rester sur la position pilotée."
+      - "Pour la nuit, Confort −1 °C suffit : la maison préchauffe en heures creuses."
+
+  - id: ecrins
+    nom: Chambre Écrins
+    type: convecteur
+    temperature: sensor.capteur_ch_parents_temperature   # À CONFIRMER : capteur « ch parents » = Écrins ?
+    humidite: sensor.capteur_ch_parents_humidite
+    convecteur:
+      mode: select.convecteur_ecrins_mode_du_fil_pilote
+      puissance: sensor.convecteur_ecrins_demande_instantanee
+      interrupteur: switch.convecteur_ecrins
+      energie: sensor.convecteur_ecrins_consommation
+      modele: "À renseigner"
+    lampes:
+      - {id: chambre, nom: "Chambre", entite: light.chambre_a_coucher}
+    conseils:
+      - "Le sélecteur du convecteur doit rester sur la position pilotée."
+
+  - id: refuge
+    nom: Chambre Refuge
+    type: sans_chauffage
     temperature: sensor.capteur_ch_refuge_temperature
     humidite: sensor.capteur_ch_refuge_humidite
+    lampes:
+      - {id: groupe, nom: "Toute la chambre", entite: light.chambre_refuge_groupe}
+    conseils:
+      - "Air sec : laissez la porte de la salle d'eau entrouverte après la douche."
 
-exterieur:
-  temperature: sensor.capteur_exterieur_temperature
-  meteo: weather.val_des_pres
-  alerte: sensor.05_weather_alert
+  - id: entree
+    nom: Entrée bas
+    type: convecteur
+    temperature: sensor.capteur_entree_temperature
+    humidite: sensor.capteur_entree_humidite
+    convecteur:
+      mode: select.convecteur_entree_bas_mode_du_fil_pilote
+      puissance: sensor.convecteur_entree_bas_demande_instantanee
+      interrupteur: switch.convecteur_entree_bas
+      energie: sensor.convecteur_entree_bas_consommation
+      modele: "À renseigner"
+    lampes:
+      - {id: bandeau, nom: "Bandeau d’entrée", entite: light.strip_entree_lumiere}
 
-lumieres:
-  - light.escalier
-  - light.chambre_refuge_groupe
-  - light.chambre_a_coucher
-  - light.sejour
-  - light.salon
-  - light.salle_de_bain_cave
-  - light.strip_entree_lumiere
-  - light.strip_bureau_light
-  - light.hue_go_1
-  - light.hue_lightstrip_1
+  - id: atelier
+    nom: Atelier
+    type: convecteur
+    temperature: sensor.capteur_atelier_temperature
+    humidite: sensor.capteur_atelier_humidity
+    convecteur:
+      mode: select.convecteur_atelier_mode_du_fil_pilote
+      puissance: sensor.convecteur_atelier_demande_instantanee
+      interrupteur: switch.convecteur_atelier
+      energie: sensor.convecteur_atelier_consommation
+      modele: "À renseigner"
+    lampes:
+      - {id: bandeau, nom: "Bandeau du bureau", entite: light.strip_bureau_light}
+    conseils:
+      - "Le chauffe-eau de la maison est dans l'atelier : laissez son accès dégagé."
 
-# À compléter quand les identifiants des portes Haut / Bas seront connus
-portes: []
+  - id: sdb
+    nom: Salle de bain cave
+    type: convecteur
+    temperature: sensor.capteur_sdbcave_temperature
+    humidite: sensor.capteur_sdbcave_humidity
+    convecteur:
+      mode: select.convecteur_sdb_cave_mode_du_fil_pilote
+      puissance: sensor.convecteur_sdb_cave_demande_instantanee
+      interrupteur: switch.convecteur_sdb_cave
+      energie: sensor.convecteur_sdb_cave_consommation
+      modele: "À renseigner"
+    lampes:
+      - {id: plafonnier, nom: "Plafonnier", entite: light.salle_de_bain_cave}
+    ventilation:
+      entite: light.commande_vmc
+      maintien_min: 30
+      arret_auto: "S'arrête seule 5 min après l'extinction de la lumière."
+    conseils:
+      - "Bouton de gauche : un clic allume la lumière, double clic lance la ventilation."
+      - "Bouton de droite : un clic éteint, la ventilation s'arrête 5 minutes après ; double clic arrête la ventilation."
+      - "Pièce encore humide : maintenez la ventilation 30 min et laissez la porte ouverte."
+
+  - id: douche
+    nom: Douche étage
+    type: sans_chauffage
+    temperature: sensor.capteur_douche_etage_temperature
+    humidite: sensor.capteur_douche_etage_humidity
+    lampes: []                      # À RENSEIGNER si les ampoules sont pilotables
+    conseils:
+      - "Pas de ventilation mécanique à l'étage : après la douche, ouvrez la fenêtre quelques minutes et laissez la porte entrouverte."
+      - "Raclez la paroi : l'eau est très calcaire."
+
+  - id: escalier
+    nom: Escalier
+    type: passage
+    lampes:
+      - {id: escalier, nom: "Escalier", entite: light.escalier, minuterie_min: 10}
+    conseils:
+      - "La nuit, un détecteur allume au passage et éteint 2 minutes après le dernier mouvement."
+      - "Boutons poussoirs : un clic pleine puissance, double clic demi-puissance, appui long extinction."
+
+# Appareils commandés par une prise ou une passerelle.
+#   voyageur: true         visible et utilisable par les voyageurs
+#   peut_eteindre: false   le bouton du portail ne peut qu'allumer
+#   alimentation           prise qui alimente l'appareil (ou sa passerelle) : allumée d'abord,
+#                          le portail attend que l'appareil réponde, puis l'actionne
+#   arrivee: true          allumé par « Terminer la mise en route »
+#   depart: immediat|differe|garder   à la fermeture : coupé tout de suite, après le
+#                          compte à rebours, ou laissé tel quel
+#   couper_alimentation    à la fermeture, coupe aussi la prise d'alimentation
+commandes:
+  - id: eau_chaude
+    nom: Eau chaude
+    icone: goutte
+    entite: switch.atelier_chauffe_eau
+    alimentation: switch.prise_chauffe_eau_switch_3   # prise du boîtier Tydom
+    alimentation_nom: "boîtier Tydom"
+    delai_max: 300
+    etat_on: "Mode nuit, heures creuses"
+    etat_off: "Arrêtée"
+    etat_veille: "Arrêtée, maison fermée"
+    bouton_on: "Mode nuit"
+    bouton_off: "Arrêter"
+    explication: "En mode nuit, le ballon chauffe uniquement aux heures creuses. Après la mise en route, comptez une nuit pour avoir de l'eau chaude."
+    voyageur: true
+    peut_eteindre: true
+    arrivee: true
+    depart: immediat
+    couper_alimentation: differe
+  - id: wifi
+    nom: WiFi
+    icone: wifi
+    entite: switch.prise_wi_fi_tableau_commutateur
+    etat_on: "Allumé"
+    etat_off: "Éteint"
+    bouton_on: "Allumer"
+    explication: "Le WiFi est coupé quand la maison est vide. Il se coupe en dernier à la fermeture."
+    voyageur: true
+    peut_eteindre: false   # l'éteindre couperait l'accès à ce portail
+    arrivee: true
+    depart: differe
+# Éclairage connecté (pont Hue) : identifiant de sa prise à renseigner
+#  - id: hue
+#    nom: Éclairage connecté
+#    icone: ampoule
+#    entite: switch.A_RENSEIGNER_prise_pont_hue
+#    etat_on: "Allumé"
+#    etat_off: "Éteint"
+#    bouton_on: "Activer"
+#    voyageur: true
+#    peut_eteindre: false
+#    arrivee: true
+#    depart: differe
+
+fermeture:
+  delai_s: 120              # compte à rebours avant les coupures différées
+
+# Gestes manuels de la liste de départ (cochés par les voyageurs).
+depart_gestes:
+  - groupe: "Poêles à granulés"
+    couleur: poele
+    gestes:
+      - {t: "Poêles éteints et refroidis", x: "Attendre 20 à 30 min après l'extinction."}
+      - {t: "Nettoyés", x: "Corps de chauffe, vitre, brûleur, cendrier."}
+      - {t: "Remplis de granulés", x: "Pour le prochain séjour."}
+      - {t: "Console laissée alimentée", x: "Ne pas couper leur prise."}
+  - groupe: "Radiateurs électriques"
+    couleur: radiateur
+    gestes:
+      - {t: "Sélecteurs en position pilotée", x: "Sur chaque convecteur, sinon ils ne seront plus commandables."}
+  - groupe: "Maison"
+    couleur: maison
+    gestes:
+      - {t: "Machine à laver : eau coupée, débranchée"}
+      - {t: "Lave-vaisselle vide, machine à café nettoyée"}
+      - {t: "Four et lave-vaisselle disjonctés"}
+      - {t: "Réfrigérateur arrêté, portes ouvertes"}
+      - {t: "Poubelles emportées"}
+      - {t: "Draps rangés, volets fermés"}
+      - {t: "Portes fermées, clés rangées"}
+
+arrivee_etapes:
+  - {t: "Récupérer les clés", x: "Suivez la procédure affichée sur la boîte à clés."}
+  - {t: "Remplir les poêles", x: "Sacs de granulés en bas ou dans la pièce commune."}
+  - {t: "Chauffer les pièces utilisées", x: "Allumez seulement les radiateurs des pièces occupées.", lien: "#/chauffage", bouton: "Choisir les pièces"}
+  - {t: "Faire les lits", x: "Voir le guide, fiche « Faire les lits »."}

@@ -1,0 +1,39 @@
+# Guide d'exemple, sans contenu privé. Le vrai guide vient du dépôt privé (option guide_depot).
+titre: Guide de la maison (exemple)
+themes:
+- id: chauffer
+  titre: Se chauffer
+  couleur: '#7A4E24'
+  fiches:
+  - id: radiateurs
+    titre: Régler les radiateurs
+    etapes:
+    - Utilisez l’onglet Chauffage ou l’écran de chaque pièce.
+    - Confort le jour, Confort −1 °C la nuit dans les chambres.
+- id: energie
+  titre: Électricité
+  couleur: '#3A6EA5'
+  fiches:
+  - id: linky
+    titre: Réarmer le compteur
+    duree: 1 minute
+    etapes:
+    - Éteignez d’abord ce qui consomme beaucoup.
+    - Appuyez environ 3 secondes sur le bouton « + » du compteur.
+depannages:
+- id: courant
+  titre: Plus de courant
+  debut: q1
+  questions:
+  - id: q1
+    texte: Les voisins ont-ils de la lumière ?
+    reponses:
+    - texte: Oui
+      fiche: linky
+    - texte: Non
+      fin: Attendez le retour du courant.
+contacts:
+- nom: Propriétaire
+  tel: '{telephone_proprietaire}'
+- nom: Urgences
+  tel: '112'
