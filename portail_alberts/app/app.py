@@ -18,7 +18,7 @@ import guide
 import ha
 import maison
 
-VERSION = "0.3.0"
+VERSION = "0.3.3"
 ICI = Path(__file__).parent
 STATIC = ICI / "static"
 maison.DEMO = os.environ.get("DEMO") == "1"
@@ -47,8 +47,10 @@ def charger_config():
 
 
 def _etats_frais():
-    """Les états sont relus au plus toutes les 2 s, quel que soit le nombre d'écrans ouverts."""
-    if time.time() - maison.CACHE["horodatage"] > 2:
+    """En direct (WebSocket) : rien à relire. Sinon, relecture complète au plus toutes les 5 s."""
+    if maison.CACHE["direct"]:
+        return True
+    if time.time() - maison.CACHE["horodatage"] > 5:
         return maison.lire_etats()
     return True
 
@@ -108,8 +110,9 @@ class Handler(BaseHTTPRequestHandler):
         if chemin == "/sante":
             ok = maison.lire_etats()
             ids = maison.entites(CFG)
+            # (« direct » : états reçus en temps réel par WebSocket)
             return self._envoyer(200 if ok else 503, {
-                "version": VERSION, "demo": maison.DEMO, "jeton_present": bool(ha.TOKEN), "config": src, "alerte_config": _CFG["alerte"],
+                "version": VERSION, "demo": maison.DEMO, "direct": maison.CACHE["direct"], "jeton_present": bool(ha.TOKEN), "config": src, "alerte_config": _CFG["alerte"],
                 "erreur_ha": maison.CACHE["erreur"], "nb_entites_ha": len(maison.CACHE["etats"]),
                 "entites_absentes": [e for e in ids if e not in maison.CACHE["etats"]],
                 "entites_indisponibles": [e for e in ids if maison.etat(e) == "unavailable"],
@@ -140,7 +143,8 @@ class Handler(BaseHTTPRequestHandler):
         if not maison.CACHE["etats"]:
             maison.lire_etats()
         code, r = maison.action(CFG, q)
-        maison.CACHE["horodatage"] = 0          # relire les états à la prochaine demande
+        if not maison.CACHE["direct"]:
+            maison.CACHE["horodatage"] = 0      # sans connexion directe : relire à la prochaine demande
         print(f"Action {q.get('type')} {q.get('piece') or q.get('id') or ''} -> {'ok' if r.get('ok') else r.get('message')}", flush=True)
         self._envoyer(code, r)
 
@@ -151,5 +155,6 @@ class Handler(BaseHTTPRequestHandler):
 if __name__ == "__main__":
     print(f"Portail Les Alberts {VERSION} - {'DÉMO' if maison.DEMO else ha.REST} - port 8099", flush=True)
     if not maison.DEMO:
+        maison.demarrer_abonnement()
         guide.demarrer_synchro()
     ThreadingHTTPServer(("0.0.0.0", 8099), Handler).serve_forever()

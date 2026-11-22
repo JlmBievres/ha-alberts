@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import ha
 
 DEMO = False                 # positionné par app.py
-CACHE = {"etats": {}, "horodatage": 0, "erreur": None}
+CACHE = {"etats": {}, "horodatage": 0, "erreur": None, "direct": False}
 INDISPO = (None, "unavailable", "unknown")
 MARCHE_ARRET = {"switch", "input_boolean", "light", "fan"}
 APPUI = {"button", "input_button"}
@@ -14,7 +14,68 @@ VERROU = threading.Lock()
 
 
 # ---------------------------------------------------------------- états
+# Les états arrivent en direct par une connexion WebSocket permanente avec Home Assistant :
+# plus besoin de relire toutes les entités à chaque affichage (c'était la cause de la lenteur).
+CHANGEMENT = threading.Condition()
+
+
+def _abonnement():
+    while True:
+        ws = None
+        try:
+            ws = ha.WebSocket(ha.WS_URL)
+            if ws.recevoir().get("type") != "auth_required":
+                raise ConnectionError("réponse inattendue")
+            ws.envoyer({"type": "auth", "access_token": ha.TOKEN})
+            if ws.recevoir().get("type") != "auth_ok":
+                raise PermissionError("jeton refusé")
+            ws.envoyer({"id": 1, "type": "get_states"})
+            ws.envoyer({"id": 2, "type": "subscribe_events", "event_type": "state_changed"})
+            ws.s.settimeout(None)
+
+            def ping():
+                n = 100
+                while CACHE["direct"] is not None:
+                    time.sleep(30)
+                    n += 1
+                    try:
+                        ws.envoyer({"id": n, "type": "ping"})
+                    except Exception:
+                        ws.fermer()
+                        return
+            threading.Thread(target=ping, daemon=True).start()
+            while True:
+                msg = ws.recevoir()
+                if msg.get("id") == 1 and msg.get("type") == "result":
+                    CACHE["etats"] = {e["entity_id"]: e for e in msg.get("result") or []}
+                    CACHE["horodatage"], CACHE["erreur"], CACHE["direct"] = time.time(), None, True
+                    print(f"Connecté en direct à Home Assistant ({len(CACHE['etats'])} entités)", flush=True)
+                elif msg.get("type") == "event":
+                    d = msg["event"]["data"]
+                    if d.get("new_state") is None:
+                        CACHE["etats"].pop(d["entity_id"], None)
+                    else:
+                        CACHE["etats"][d["entity_id"]] = d["new_state"]
+                    CACHE["horodatage"] = time.time()
+                    with CHANGEMENT:
+                        CHANGEMENT.notify_all()
+        except Exception as exc:
+            CACHE["direct"], CACHE["erreur"] = False, f"connexion directe perdue : {exc}"
+            print(f"WebSocket HA : {exc}. Nouvel essai dans 5 s.", flush=True)
+        finally:
+            if ws:
+                ws.fermer()
+        time.sleep(5)
+
+
+def demarrer_abonnement():
+    if not DEMO and ha.WS_URL:
+        threading.Thread(target=_abonnement, daemon=True).start()
+
+
 def lire_etats():
+    if CACHE["direct"]:
+        return True
     if DEMO:
         import demo
         if not CACHE["etats"]:
@@ -47,8 +108,8 @@ def num(eid):
 
 
 def etat_direct(eid):
-    """État lu à l'instant (pas le cache), pour vérifier qu'une commande a pris."""
-    if DEMO:
+    """État le plus récent. Avec la connexion directe, le cache EST à jour."""
+    if DEMO or CACHE["direct"]:
         return etat(eid)
     try:
         e = ha.rest("GET", f"/states/{eid}")
@@ -76,13 +137,18 @@ def basculer(eid, on, **extra):
     return service(dom, "turn_on" if on else "turn_off", dict({"entity_id": eid}, **extra))
 
 
-def verifier(eid, attendu, delai=4.0):
-    """Attend que l'entité prenne l'état attendu. Faux si elle ne répond pas."""
+def verifier(eid, attendu, delai=3.0):
+    """Attend que l'entité prenne l'état attendu. Faux si elle ne répond pas.
+    En direct : réveillé à chaque changement d'état, donc réponse quasi immédiate."""
     fin = time.time() + delai
     while time.time() < fin:
         if etat_direct(eid) == attendu:
             return True
-        time.sleep(0.5)
+        if CACHE["direct"]:
+            with CHANGEMENT:
+                CHANGEMENT.wait(timeout=0.3)
+        else:
+            time.sleep(0.4)
     return etat_direct(eid) == attendu
 
 
@@ -113,6 +179,8 @@ def entites(CFG):
         c = p.get("convecteur") or {}
         ids += [c.get(k) for k in ("mode", "puissance", "interrupteur")]
         ids += [(p.get("poele") or {}).get("prise"), (p.get("ventilation") or {}).get("entite")]
+        pe = (p.get("porte") or {}).get("entite")
+        ids += pe if isinstance(pe, list) else [pe]
         ids += [l["entite"] for l in p.get("lampes") or []]
     ids += [d["entite"] for d in CFG.get("portes") or []]
     for g in CFG.get("prises") or []:
@@ -181,11 +249,24 @@ def analyser(CFG):
         if c:
             mode, w = etat(c.get("mode")), num(c.get("puissance"))
             options = attr(c.get("mode"), "options") or list(modes)
-            panne = mode in CFG["modes_chauffe"] and (w or 0) < S["puissance_min_chauffe"] and t is not None and t < S["temp_chauffe_attendue"]
-            d["chauffage"] = {"type": "radiateur", "mode": mode, "dispo": mode not in INDISPO,
+            chauffe = w is not None and w >= S["puissance_min_chauffe"]
+            if mode in INDISPO:
+                diag, txt = "ko", "Ne répond pas"
+            elif chauffe:
+                diag, txt = "chauffe", f"Chauffe en ce moment, {fmt(w, 0)} W"
+            elif mode in CFG["modes_chauffe"] and t is not None and t < S["temp_chauffe_attendue"]:
+                diag, txt = "panne", "Ne chauffe pas"
+            elif mode in CFG["modes_chauffe"]:
+                diag, txt = "ok", "À température"
+            elif mode == "Eco":
+                diag, txt = "eco", "En économie"
+            else:
+                diag, txt = "arret", "Hors-gel"
+            d["chauffage"] = {"type": "radiateur", "mode": mode, "dispo": mode not in INDISPO, "diag": diag, "etat": txt,
                               "libelle": modes.get(mode, {}).get("libelle", "Autre réglage" if mode not in INDISPO else "Ne répond pas"),
-                              "panne": panne,
-                              "modes": [{"valeur": k, "libelle": v["libelle"], "sous": v.get("sous", "")} for k, v in modes.items() if k in options]}
+                              "panne": diag == "panne", "aide": modes.get(mode, {}).get("aide", ""),
+                              "modes": [{"valeur": k, "libelle": v["libelle"], "sous": v.get("sous", ""), "icone": v.get("icone", "")}
+                                        for k, v in modes.items() if k in options]}
         elif p.get("type") == "poele":
             po = p.get("poele") or {}
             st, w = etat(po.get("prise")), num(po.get("puissance"))
@@ -208,6 +289,13 @@ def analyser(CFG):
                         "variable": any(l["variable"] for l in lampes),
                         "texte": "Pas de lumière pilotée" if not lampes else ("Éteinte" if not on else
                                  ("Allumée" if len(lampes) == 1 else f"{len(on)} sur {len(lampes)}"))}
+        po = p.get("porte")
+        if po:
+            ids = po.get("entite") or []
+            sts = [etat(i) for i in (ids if isinstance(ids, list) else [ids])]
+            connus = [x for x in sts if x not in INDISPO]
+            d["porte"] = {"nom": po.get("nom", "Porte"),
+                          "etat": "inconnu" if not connus else ("ouverte" if any(x in ("on", "open") for x in connus) else "fermee")}
         v = p.get("ventilation")
         if v:
             d["ventilation"] = {"on": etat(v["entite"]) == "on", "ko": etat(v["entite"]) in INDISPO,

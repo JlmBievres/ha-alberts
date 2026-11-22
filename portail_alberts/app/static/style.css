@@ -296,3 +296,16 @@ table.convs a{color:var(--encre);text-decoration:none}
 .pil-on,.pil-off,.pil-ko{font-weight:700;font-size:14px;border-radius:999px;padding:4px 12px;white-space:nowrap}
 .pil-on{background:var(--ok-tint);color:var(--ok)} .pil-off{background:var(--trait2);color:var(--doux)} .pil-ko{background:var(--warn);color:#fff}
 .pied-lum svg,.lampe-c svg,.panneau-lum svg{flex:0 0 auto}
+
+/* chauffage retravaillé (0.3.1) */
+.ligne-ch{display:flex;align-items:center;gap:6px;font-size:14px;flex-wrap:wrap}
+.pastille{font-size:12px;font-weight:800;border-radius:999px;padding:2px 9px;white-space:nowrap}
+.pastille.grande{font-size:14px;padding:6px 12px}
+.modes4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.modes4 button{display:flex;flex-direction:column;align-items:center;gap:2px;min-height:88px;padding:10px 6px}
+.modes4 button b{font-size:16px}
+.modes4 button svg{margin-bottom:2px}
+@media (max-width:1180px){.modes4{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.explic{margin:10px 0 0;background:var(--radiateur-tint);border-radius:8px;padding:8px 12px;font-size:15px}
+.pied-lum.sans-bord{margin-top:0;border-top:0;padding-top:2px}
+.piece .pied-lum:first-of-type{margin-top:auto}

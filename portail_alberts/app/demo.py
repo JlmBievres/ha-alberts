@@ -61,6 +61,8 @@ def etats():
         "light.hue_go_1": _e("off", **DIM),
         "light.hue_lightstrip_1": _e("off", **DIM),
         "light.commande_vmc": _e("off", supported_color_modes=["onoff"]),
+        "binary_sensor.ouverture_haut_ouverture": _e("off"), "binary_sensor.ouverture_haut_ouverture_2": _e("off"),
+        "binary_sensor.ouverture_bas_ouverture": _e("on"), "binary_sensor.ouverture_bas_ouverture_2": _e("unavailable"),
         "switch.prise_deshumidificateur_switch_3": _e("off"), "switch.atelier_chauffe_eau": _e("on"),
     }
     return E

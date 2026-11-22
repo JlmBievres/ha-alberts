@@ -34,6 +34,7 @@ class WebSocket:
     """Client WebSocket minimal (texte, masquage, fragments, ping)."""
 
     def __init__(self, url, timeout=15):
+        self.verrou_envoi = __import__("threading").Lock()
         u = urlparse(url)
         self.s = socket.create_connection((u.hostname, u.port or 80), timeout=timeout)
         cle = base64.b64encode(os.urandom(16)).decode()
@@ -68,7 +69,8 @@ class WebSocket:
         else:
             tete += bytes([0x80 | 127]) + struct.pack(">Q", n)
         masque = os.urandom(4)
-        self.s.sendall(tete + masque + bytes(b ^ masque[i % 4] for i, b in enumerate(data)))
+        with self.verrou_envoi:
+            self.s.sendall(tete + masque + bytes(b ^ masque[i % 4] for i, b in enumerate(data)))
 
     def envoyer(self, obj):
         self._trame(1, json.dumps(obj).encode())

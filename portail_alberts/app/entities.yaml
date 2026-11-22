@@ -19,10 +19,10 @@ seuils:
 
 # Chauffage simplifié : 4 modes seulement (valeur Home Assistant -> libellé, sous-titre)
 modes:
-  Comfort: {libelle: "Confort", sous: "Journée"}
-  ComfortMinus1: {libelle: "Nuit", sous: "−1 °C"}
-  Eco: {libelle: "Éco", sous: "Absence"}
-  FrostProtection: {libelle: "Hors-gel", sous: "Pièce fermée"}
+  Comfort: {libelle: "Confort", sous: "Journée", icone: soleil, aide: "La température réglée sur le radiateur. Pour une pièce occupée en journée."}
+  ComfortMinus1: {libelle: "Nuit", sous: "−1 °C", icone: lune, aide: "Un degré de moins. Idéal pour dormir."}
+  Eco: {libelle: "Éco", sous: "Absence", icone: feuille, aide: "Environ 3,5 °C de moins. Pour une absence de la journée."}
+  FrostProtection: {libelle: "Hors-gel", sous: "Pièce fermée", icone: flocon, aide: "Environ 7 °C. Pour une pièce inoccupée."}
 modes_chauffe: [Comfort, ComfortMinus1]
 prechauffage: input_boolean.booleen_convecteur_tarif_nuit   # préchauffage heures creuses
 
@@ -45,6 +45,8 @@ portes: []
 #  - {nom: "Bas", entite: binary_sensor.A_RENSEIGNER_porte_bas}
 
 # Pièces. type : convecteur | poele | sans_chauffage | passage
+#   porte : capteur(s) d'ouverture affiché(s) sur la carte (lecture seule) ; avec plusieurs
+#           capteurs, la porte est « ouverte » dès que l'un d'eux l'indique
 #   lampes : chaque lampe pilotable (light.* ou switch.*) ; minuterie_min : bouton « Allumer N min »
 #   ventilation : entité + maintien (minutes) ; le portail la relance tant que dure le maintien
 #   poele.prise : prise qui alimente le poêle (lecture seule, jamais coupée par le portail)
@@ -57,6 +59,8 @@ pieces:
     poele: {prise: switch.prise_poele_salon_switch_3, puissance: sensor.prise_poele_salon_active_power_3}   # « Prise poele Séjour »
     lampes:
       - {id: plafonnier, nom: "Plafonnier, 4 ampoules", entite: light.sejour}
+      - {id: entree, nom: "Lumière de l’entrée", entite: light.strip_entree_lumiere}
+    porte: {nom: "Porte d’entrée haute", entite: [binary_sensor.ouverture_haut_ouverture, binary_sensor.ouverture_haut_ouverture_2]}
 
   - id: salon
     nom: Salon
@@ -83,7 +87,7 @@ pieces:
     lampes: []
     conseils:
       - "Le sélecteur du convecteur doit rester sur la position pilotée."
-      - "Pour la nuit, Confort −1 °C suffit : la maison préchauffe en heures creuses."
+      - "Pour dormir, le mode Nuit suffit : la maison préchauffe en heures creuses."
 
   - id: ecrins
     nom: Chambre Écrins
@@ -108,6 +112,7 @@ pieces:
     humidite: sensor.capteur_ch_refuge_humidite
     lampes:
       - {id: groupe, nom: "Toute la chambre", entite: light.chambre_refuge_groupe}
+      - {id: bureau, nom: "Bandeau du bureau", entite: light.strip_bureau_light, alimentation: switch.prise_chauffe_eau_switch_3}
     conseils:
       - "Air sec : laissez la porte de la salle d'eau entrouverte après la douche."
 
@@ -122,8 +127,8 @@ pieces:
       interrupteur: switch.convecteur_entree_bas
       energie: sensor.convecteur_entree_bas_consommation
       modele: "À renseigner"
-    lampes:
-      - {id: bandeau, nom: "Bandeau d’entrée", entite: light.strip_entree_lumiere}
+    lampes: []
+    porte: {nom: "Porte d’entrée basse", entite: [binary_sensor.ouverture_bas_ouverture, binary_sensor.ouverture_bas_ouverture_2]}
 
   - id: atelier
     nom: Atelier
@@ -136,8 +141,7 @@ pieces:
       interrupteur: switch.convecteur_atelier
       energie: sensor.convecteur_atelier_consommation
       modele: "À renseigner"
-    lampes:
-      - {id: bandeau, nom: "Bandeau du bureau", entite: light.strip_bureau_light, alimentation: switch.prise_chauffe_eau_switch_3}
+    lampes: []
     conseils:
       - "Le chauffe-eau de la maison est dans l'atelier : laissez son accès dégagé."
 
