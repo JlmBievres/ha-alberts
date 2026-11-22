@@ -195,9 +195,11 @@ def analyser(CFG):
             d["warn"] = diag in ("panne", "coupe")
         elif p.get("type") == "poele":
             prise = (p.get("poele") or {}).get("prise")
-            st = etat(prise)
-            d["poele"] = {"etat": "inconnu" if not prise or st in INDISPO else st,
-                          "texte": {"on": "Console allumée", "off": "Console éteinte"}.get(st, "État non relié")}
+            st, w = etat(prise), num((p.get("poele") or {}).get("puissance"))
+            texte = {"on": "Console allumée", "off": "Prise coupée"}.get(st, "État non relié")
+            if st == "on" and w is not None and w >= float((CFG.get("fermeture") or {}).get("poeles_seuil_w", 15)):
+                texte = f"En marche, {fmt(w, 0)} W"
+            d["poele"] = {"etat": "inconnu" if not prise or st in INDISPO else st, "texte": texte, "w": w}
             d["chip"] = "Poêle"
         elif p.get("type") == "passage":
             d["chip"] = "Détecteur la nuit"
@@ -225,7 +227,9 @@ def analyser(CFG):
             st = etat(l["entite"])
             br = attr(l["entite"], "brightness")
             modes_coul = attr(l["entite"], "supported_color_modes") or []
-            lampes.append({"id": l["id"], "nom": l["nom"], "on": st == "on", "ko": st in INDISPO,
+            sans_courant = bool(l.get("alimentation")) and etat(l["alimentation"]) != "on"
+            lampes.append({"id": l["id"], "nom": l["nom"], "on": st == "on", "ko": st in INDISPO and not sans_courant,
+                           "sans_courant": sans_courant,
                            "variable": l["entite"].startswith("light.") and any(m != "onoff" for m in modes_coul),
                            "luminosite": round((br or 0) * 100 / 255) if br else None,
                            "minuterie_min": l.get("minuterie_min"), "reste": reste_minuterie(f"lampe:{p['id']}:{l['id']}")})
@@ -233,6 +237,8 @@ def analyser(CFG):
         on = [l for l in lampes if l["on"]]
         if not lampes:
             d["lumiere"] = {"etat": "none", "texte": "Pas de lumière pilotée"}
+        elif all(l["sans_courant"] for l in lampes):
+            d["lumiere"] = {"etat": "off", "texte": "Non alimentée"}
         elif not on:
             d["lumiere"] = {"etat": "off", "texte": "Éteinte"}
         else:
@@ -297,7 +303,11 @@ def analyser(CFG):
         "exterieur": {"t": fmt(ext) if isinstance(ext, (int, float)) else None, "vigilance": vig,
                       "condition": CONDITIONS.get(etat(M.get("entite")), etat(M.get("entite"))), "lieu": M.get("lieu", "")},
         "chauffage": {"puissance": round(puissance_totale), "prechauffage": None if pre in INDISPO else pre == "on"},
-        "depart": {"auto": auto, "gestes": CFG.get("depart_gestes") or [], "delai_s": CFG.get("fermeture", {}).get("delai_s", 120)},
+        "depart": {"auto": auto, "gestes": CFG.get("depart_gestes") or [], "delai_s": CFG.get("fermeture", {}).get("delai_s", 120),
+                   "coupes": [c.get("alimentation_nom", c["nom"]) for c in CFG.get("commandes") or [] if c.get("couper_alimentation") == "differe"]
+                             + sorted([c["nom"] for c in CFG.get("commandes") or [] if c.get("depart") == "differe"], key=lambda n: (n.startswith("WiFi"), "Livebox" in n)),
+                   "gardes": [c["nom"] for c in CFG.get("commandes") or [] if c.get("depart") == "garder"],
+                   "refroidis": [c["nom"] for c in CFG.get("commandes") or [] if c.get("depart") == "refroidissement"]},
         "arrivee": {"etapes": CFG.get("arrivee_etapes") or [], "mise_en_route": etat_mise_en_route(CFG)},
         "fermeture": etat_fermeture(),
     }
@@ -390,6 +400,8 @@ def etat_mise_en_route(CFG):
             e, x = "echec", cours["message"]
         elif st == "on":
             e, x = "ok", c.get("etat_on", "Allumé")
+        elif st in INDISPO and not c.get("alimentation"):
+            e, x = "echec", "Prise introuvable ou hors ligne"
         else:
             e, x = "attente", "Sera allumé par la mise en route"
         out.append({"id": c["id"], "t": c["nom"], "etat": e, "x": x})
@@ -446,13 +458,45 @@ def demarrer_fermeture(CFG):
             if c.get("couper_alimentation") == "differe" and c.get("alimentation"):
                 basculer(c["alimentation"], False)
         differes = [c for c in CFG.get("commandes") or [] if c.get("depart") == "differe"]
-        differes.sort(key=lambda c: c["id"] == "wifi")
+        differes.sort(key=lambda c: (c["id"].startswith("wifi"), c["id"].startswith("wifi_box")))
         for c in differes:
             time.sleep(2)
             basculer(c["entite"], False)
         FERMETURE["phase"] = "fermee"
         print("Fermeture de la maison : terminée", flush=True)
+        for c in CFG.get("commandes") or []:
+            if c.get("depart") == "refroidissement":
+                threading.Thread(target=_couper_poele, args=(CFG, c), daemon=True).start()
     threading.Thread(target=suite, daemon=True).start()
+
+
+def _couper_poele(CFG, c):
+    """Coupe la prise d'un poêle seulement quand il ne ventile plus.
+    Avec mesure de puissance : 10 minutes de suite sous le seuil (au plus tard delai_max).
+    Sans mesure : attente fixe delai_min. Annulé si la maison est remise en route."""
+    F = CFG.get("fermeture") or {}
+    seuil, sous, debut = float(F.get("poeles_seuil_w", 15)), 0, time.time()
+    limite = debut + 60 * int(F.get("poeles_delai_max_min", 180))
+    attente = debut + 60 * int(F.get("poeles_delai_min", 60))
+    capteur = c.get("puissance")
+    print(f"{c['nom']} : coupure après refroidissement ({'mesure ' + capteur if capteur else 'attente fixe'})", flush=True)
+    while True:
+        time.sleep(5 if DEMO else 60)
+        if FERMETURE["phase"] != "fermee":
+            print(f"{c['nom']} : coupure abandonnée (maison remise en route)", flush=True)
+            return
+        if capteur:
+            try:
+                w = float(etat_direct(capteur))
+            except (TypeError, ValueError):
+                w = None
+            sous = sous + 1 if w is not None and w < seuil else 0
+            if sous >= (1 if DEMO else 10) or time.time() > limite:
+                break
+        elif time.time() > attente or DEMO:
+            break
+    basculer(c["entite"], False)
+    print(f"{c['nom']} : prise coupée", flush=True)
 
 
 def annuler_fermeture(CFG):

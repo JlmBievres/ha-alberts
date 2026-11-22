@@ -58,7 +58,7 @@ pieces:
     type: poele
     temperature: sensor.capteur_sejour_temperature
     humidite: sensor.capteur_sejour_humidity
-    poele: {prise: null}            # À RENSEIGNER : prise du poêle Hoben du séjour
+    poele: {prise: switch.prise_poele_salon_switch_3, puissance: sensor.prise_poele_salon_active_power_3}   # « Prise poele Séjour »
     lampes:
       - {id: plafonnier, nom: "Plafonnier, 4 ampoules", entite: light.sejour}
 
@@ -67,11 +67,11 @@ pieces:
     type: poele
     temperature: sensor.capteur_salon_temperature
     humidite: sensor.capteur_salon_humidity
-    poele: {prise: null}            # À RENSEIGNER : prise du poêle Hoben du salon
+    poele: {prise: switch.tz3000_2putqrmw_ts011f_switch, puissance: sensor.tz3000_2putqrmw_ts011f_active_power}   # « Prise Poele Salon »
     lampes:
       - {id: plafonnier, nom: "Plafonnier, 4 lampes", entite: light.salon}
-      - {id: huego, nom: "Hue Go", entite: light.hue_go_1}
-      - {id: bandeau, nom: "Bandeau du meuble", entite: light.hue_lightstrip_1}
+      - {id: huego, nom: "Hue Go", entite: light.hue_go_1, alimentation: switch.prise_television_switch_3}
+      - {id: bandeau, nom: "Bandeau du meuble", entite: light.hue_lightstrip_1, alimentation: switch.prise_television_switch_3}
 
   - id: meije
     nom: Chambre Meije
@@ -141,7 +141,7 @@ pieces:
       energie: sensor.convecteur_atelier_consommation
       modele: "À renseigner"
     lampes:
-      - {id: bandeau, nom: "Bandeau du bureau", entite: light.strip_bureau_light}
+      - {id: bandeau, nom: "Bandeau du bureau", entite: light.strip_bureau_light, alimentation: switch.prise_chauffe_eau_switch_3}
     conseils:
       - "Le chauffe-eau de la maison est dans l'atelier : laissez son accès dégagé."
 
@@ -226,21 +226,77 @@ commandes:
     peut_eteindre: false   # l'éteindre couperait l'accès à ce portail
     arrivee: true
     depart: differe
-# Éclairage connecté (pont Hue) : identifiant de sa prise à renseigner
-#  - id: hue
-#    nom: Éclairage connecté
-#    icone: ampoule
-#    entite: switch.A_RENSEIGNER_prise_pont_hue
-#    etat_on: "Allumé"
-#    etat_off: "Éteint"
-#    bouton_on: "Activer"
-#    voyageur: true
-#    peut_eteindre: false
-#    arrivee: true
-#    depart: differe
+  - id: wifi_sejour
+    nom: WiFi séjour
+    entite: switch.prise_wi_fi_sejour_commutateur
+    etat_on: "Allumé"
+    voyageur: false
+    peut_eteindre: false
+    arrivee: true
+    depart: differe
+  - id: hue
+    nom: Éclairage connecté et télévision
+    entite: switch.prise_television_switch_3          # « Prise Télévision » : pont Hue + TV
+    etat_on: "Allumé"
+    voyageur: false
+    arrivee: true
+    depart: differe
+  - id: poele_sejour
+    nom: Poêle du séjour (prise)
+    entite: switch.prise_poele_salon_switch_3          # « Prise poele Séjour »
+    etat_on: "Console alimentée"
+    voyageur: false
+    arrivee: true
+    depart: refroidissement  # coupée seulement quand le poêle ne ventile plus
+    puissance: sensor.prise_poele_salon_active_power_3
+  - id: poele_salon
+    nom: Poêle du salon (prise)
+    entite: switch.tz3000_2putqrmw_ts011f_switch       # « Prise Poele Salon »
+    etat_on: "Console alimentée"
+    voyageur: false
+    arrivee: true
+    depart: refroidissement
+    puissance: sensor.tz3000_2putqrmw_ts011f_active_power
+  - id: entree_haute
+    nom: Prise entrée haute
+    entite: switch.prise_entree_basse_switch           # nommée « Prise entrée haute » dans HA
+    etat_on: "Allumée"
+    voyageur: false
+    arrivee: true
+    depart: differe
+  - id: entree_basse
+    nom: Prise entrée basse
+    entite: switch.prise_wi_fi_salon_commutateur       # nommée « Prise Entrée Bas » dans HA
+    etat_on: "Allumée"
+    voyageur: false
+    arrivee: true
+    depart: differe
+  # WiFi de la Livebox (radio seulement : la box reste allumée, Home Assistant
+  # reste joignable par le câble et Tailscale pour tout rallumer à distance).
+  - id: wifi_box
+    nom: WiFi de la Livebox
+    entite: switch.livebox_nautilus_wifi
+    etat_on: "Allumé"
+    voyageur: false
+    peut_eteindre: false
+    arrivee: true
+    depart: differe
+  - id: wifi_box_invite
+    nom: WiFi invité de la Livebox
+    entite: switch.livebox_nautilus_guest_wifi
+    etat_on: "Allumé"
+    voyageur: false
+    peut_eteindre: false
+    arrivee: false         # rallumé à la main si besoin
+    depart: differe
+# Volontairement absents : déshumidificateur, extracteur de la salle de bain cave,
+# accès Internet des répéteurs, prise de la box, Pi, coordinateur Zigbee.
 
 fermeture:
   delai_s: 120              # compte à rebours avant les coupures différées
+  poeles_seuil_w: 15        # sous ce seuil pendant 10 min, le poêle ne ventile plus
+  poeles_delai_min: 60      # sans mesure de puissance : coupure 60 min après la fermeture
+  poeles_delai_max_min: 180 # avec mesure : coupure au plus tard après 3 h
 
 # Gestes manuels de la liste de départ (cochés par les voyageurs).
 depart_gestes:
@@ -250,7 +306,7 @@ depart_gestes:
       - {t: "Poêles éteints et refroidis", x: "Attendre 20 à 30 min après l'extinction."}
       - {t: "Nettoyés", x: "Corps de chauffe, vitre, brûleur, cendrier."}
       - {t: "Remplis de granulés", x: "Pour le prochain séjour."}
-      - {t: "Console laissée alimentée", x: "Ne pas couper leur prise."}
+      - {t: "Poêles arrêtés depuis leur console", x: "La maison coupera leur prise une fois refroidis, jamais avant."}
   - groupe: "Radiateurs électriques"
     couleur: radiateur
     gestes:

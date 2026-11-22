@@ -1,5 +1,5 @@
 name: Portail Les Alberts
-version: "0.2.0"
+version: "0.2.4"
 slug: portail_alberts
 description: Portail voyageurs - pilotage des pièces, chauffage, météo, arrivée, départ et guide
 arch:

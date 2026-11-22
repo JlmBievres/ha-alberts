@@ -17,6 +17,8 @@
   --g-bleu:linear-gradient(100deg,#0E2F3E 0%,#17506A 42%,#2FA6DA 78%,#5CC8F2 100%);
   --g-violet:linear-gradient(100deg,#2E1226 0%,#6A2950 42%,#C94C8C 78%,#F27BB3 100%);
   --g-jaune:linear-gradient(100deg,#2E2300 0%,#6A5000 42%,#D9A400 78%,#F8C81E 100%);
+  --ardoise:#3E4C56; --ardoise-ink:#22303A; --ardoise-tint:#EEF1F3;
+  --g-ardoise:linear-gradient(100deg,#1A232B 0%,#33424D 45%,#6E7F8B 100%);
   --g-gris:linear-gradient(100deg,#1E252C 0%,#3A4651 55%,#6B7883 100%);
   --montagne:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 110'%3E%3Cpath fill='%23F3F6F8' d='M0 110C60 104 110 96 140 86L178 52L192 58L214 30L226 36L240 12L252 22L262 17L284 46L298 42L330 74C352 90 380 106 400 110Z'/%3E%3Cpath fill='%230A2230' fill-opacity='.13' d='M240 12L231 42L243 35L236 62L252 40L247 24ZM214 30L205 54L219 45ZM284 46L279 66L295 57ZM178 52L172 70L186 62Z'/%3E%3C/svg%3E");
 }
@@ -48,11 +50,14 @@ p{margin:0}
 .g-bleu{background:var(--bleu-tint)} .g-bleu>span{color:var(--bleu-ink)}
 .g-violet{background:var(--violet-tint)} .g-violet>span{color:var(--violet-ink)}
 .g-jaune{background:var(--jaune-tint)} .g-jaune>span{color:var(--jaune-ink)}
+.g-ardoise{background:var(--ardoise-tint);margin-top:auto} .g-ardoise>span{color:var(--ardoise-ink)}
+.g-ardoise a.it{font-size:15px;min-height:40px;padding:8px 12px}
 .menu a.it{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;text-decoration:none;font-size:17px;color:#3E4C56;font-weight:600;min-height:44px}
 .menu a.it.on{background:#fff;font-weight:800}
 .g-bleu a.on{box-shadow:inset 4px 0 0 var(--bleu);color:var(--bleu-ink)} .g-bleu a.on svg{stroke:var(--bleu)}
 .g-violet a.on{box-shadow:inset 4px 0 0 var(--violet);color:var(--violet-ink)} .g-violet a.on svg{stroke:var(--violet)}
 .g-jaune a.on{box-shadow:inset 4px 0 0 var(--jaune);color:var(--jaune-ink)} .g-jaune a.on svg{stroke:var(--jaune)}
+.g-ardoise a.on{box-shadow:inset 4px 0 0 var(--ardoise);color:var(--ardoise-ink)} .g-ardoise a.on svg{stroke:var(--ardoise)}
 .onglets a{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 2px 12px;min-height:58px;text-decoration:none;font-size:13px;font-weight:600;color:var(--doux)}
 .onglets a.sej{background:var(--violet-tint);border-left:2px solid var(--trait)} .onglets a.gui{background:var(--jaune-tint)}
 .onglets a.on{font-weight:800;color:var(--bleu-ink);box-shadow:inset 0 3px 0 var(--bleu)}
@@ -62,7 +67,7 @@ p{margin:0}
 
 /* ---------- bandeau façon hautes-alpes.fr */
 .bandeau{background:var(--montagne) no-repeat 78% 100%/auto 46px,var(--g-bleu);color:#fff;border-radius:14px;padding:14px 22px 38px;display:flex;align-items:center;gap:14px;min-height:96px}
-.bandeau.violet{background-image:var(--montagne),var(--g-violet)} .bandeau.jaune{background-image:var(--montagne),var(--g-jaune)} .bandeau.gris{background-image:var(--montagne),var(--g-gris)}
+.bandeau.violet{background-image:var(--montagne),var(--g-violet)} .bandeau.jaune{background-image:var(--montagne),var(--g-jaune)} .bandeau.gris{background-image:var(--montagne),var(--g-gris)} .bandeau.ardoise{background-image:var(--montagne),var(--g-ardoise)}
 .bandeau h1{font-weight:800;font-size:clamp(26px,3.4vw,40px)}
 .bandeau .sur{display:block;font-size:12px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;opacity:.92;margin-bottom:6px}
 .bandeau .droite{margin-left:auto;text-align:right;font-weight:700;line-height:1.35}
@@ -220,7 +225,8 @@ table.convs a{color:var(--encre);text-decoration:none}
 .hub{display:flex;align-items:center;gap:14px;border-radius:12px;padding:16px;text-decoration:none;color:var(--encre);font-weight:400}
 .hub b{display:block;font-size:18px}
 .hub.violet{background:var(--violet-tint)} .hub.jaune{background:var(--jaune-tint)}
-.hub.plein{background:var(--violet);color:#fff} .hub.sombre{background:var(--encre);color:#fff}
+.hub.ardoise{background:var(--ardoise-tint);border:1.5px solid var(--trait)}
+.sep-sejour{margin:10px 0 0;font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--doux)}
 
 /* messages */
 .toast{position:fixed;right:24px;bottom:24px;z-index:50;width:min(470px,calc(100vw - 24px));background:var(--encre);color:#fff;border-radius:12px;padding:16px 18px;box-shadow:0 10px 30px rgba(0,0,0,.25);display:flex;gap:14px}

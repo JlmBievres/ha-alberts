@@ -136,7 +136,7 @@ document.addEventListener('input', e => {
 
 // ------------------------------------------------------------------ routage
 const SECTION = { '': 'bleu', piece: 'bleu', chauffage: 'bleu', convecteur: 'bleu', lumieres: 'bleu',
-  meteo: 'violet', arrivee: 'violet', depart: 'violet', sejour: 'violet', guide: 'jaune', depannage: 'jaune' };
+  meteo: 'violet', arrivee: 'ardoise', depart: 'ardoise', sejour: 'violet', guide: 'jaune', depannage: 'jaune' };
 const route = () => { const [r = '', a = '', b = ''] = location.hash.replace(/^#\/?/, '').split('/'); return { r, a: decodeURIComponent(a), b }; };
 window.addEventListener('hashchange', () => { S.pile++; S.moisConv = null; rendre(true); });
 
@@ -146,8 +146,9 @@ function menu(r) {
     arrivee: 'arrivee', depart: 'depart', sejour: 'meteo', guide: 'guide', depannage: 'guide' }[r];
   $('#menu').innerHTML = `<a class="marque" href="#/">${LOGO}<span><b>Les Alberts</b><small>MONTGENÈVRE</small></span></a>
     <div class="groupe g-bleu"><span>Piloter la maison</span>${it('', 'maison', 'Maison', actif === 'maison')}${it('chauffage', 'chauffage', 'Chauffage', actif === 'chauffage')}${it('lumieres', 'lumieres', 'Lumières', actif === 'lumieres')}</div>
-    <div class="groupe g-violet"><span>S’informer</span>${it('meteo', 'meteo', 'Météo', actif === 'meteo')}${it('arrivee', 'arrivee', 'Arrivée', actif === 'arrivee')}${it('depart', 'depart', 'Départ', actif === 'depart')}</div>
-    <div class="groupe g-jaune"><span>Guide</span>${it('guide', 'guide', 'Guide', actif === 'guide')}</div>`;
+    <div class="groupe g-violet"><span>S’informer</span>${it('meteo', 'meteo', 'Météo', actif === 'meteo')}</div>
+    <div class="groupe g-jaune"><span>Guide</span>${it('guide', 'guide', 'Guide', actif === 'guide')}</div>
+    <div class="groupe g-ardoise"><span>Arriver et partir</span>${it('arrivee', 'arrivee', 'Arrivée', actif === 'arrivee')}${it('depart', 'depart', 'Départ', actif === 'depart')}</div>`;
   const tab = { '': 'maison', piece: 'maison', chauffage: 'chauffage', convecteur: 'chauffage', lumieres: 'lumieres',
     meteo: 'sejour', arrivee: 'sejour', depart: 'sejour', sejour: 'sejour', guide: 'guide', depannage: 'guide' }[r];
   const o = (h, n, l, k, cl = '') => `<a class="${cl}${tab === k ? ' on' : ''}" href="#/${h}">${ic(n)}${l}</a>`;
@@ -220,8 +221,8 @@ function accueil() {
   let h = `<header class="bandeau grand"><div style="text-align:right"><span class="sur">Montgenèvre · Hautes-Alpes</span>
     <h1>${E.veille ? 'La maison<br>vous attend' : 'Bienvenue<br>aux Alberts'}</h1></div>${FLECHE}<span class="droite" style="text-shadow:0 1px 2px rgba(0,0,0,.25)">${meteo}</span></header>`;
   if (E.veille) {
-    h += `<div class="veille">${ic('lune', 40, '#A3376F')}<div style="flex:1;min-width:240px"><b>La maison est en veille</b><span class="doux">Radiateurs en hors-gel, eau chaude arrêtée. Comptez environ 3 heures pour une maison agréable.</span></div>
-      <a class="bouton violet" href="#/arrivee">Mettre la maison en route</a></div>`;
+    h += `<div class="veille">${ic('lune', 40, '#A3376F')}<div style="flex:1;min-width:240px"><b>La maison est en veille</b><span class="doux">Radiateurs en hors-gel, eau chaude arrêtée. La mise en route se fait depuis « Arriver et partir », en bas du menu.</span></div>
+      </div>`;
   } else if (E.alertes.length) {
     h += `<div class="grille g2">${E.alertes.map(carteAlerte).join('')}</div>`;
   } else {
@@ -230,10 +231,6 @@ function accueil() {
   h += `<div class="grille g3">${E.appareils.map(carteAppareil).join('')}${cartePortes()}</div>`;
   h += `<div class="titre-sec"><h2>Pièces</h2><span class="doux">Chauffage électrique : ${E.chauffage.puissance} W en ce moment</span></div>
     <div class="grille g5">${E.pieces.map(cartePiece).join('')}</div>`;
-  if (matchMedia('(max-width:899px)').matches) {
-    h += `<div class="grille g2" style="grid-template-columns:1fr 1fr"><a class="hub plein" href="#/arrivee">${ic('arrivee', 30)}<span><b>J’arrive</b>Mise en route</span></a>
-      <a class="hub sombre" href="#/depart">${ic('depart', 30)}<span><b>Je pars</b>Fermer la maison</span></a></div>`;
-  }
   return h;
 }
 function cartePiece(p) {
@@ -301,6 +298,7 @@ function blocLumieres(p) {
   if (!p.lampes.length) return `<div class="carte ligne">${ic('ampoule', 22, '#8A97A1')}<div><b>Pas de lumière pilotée</b><div class="doux petit">Utilisez les interrupteurs de la pièce.</div></div></div>`;
   const lignes = p.lampes.map(l => {
     const a = { type: 'lampe', piece: p.id, lampe: l.id };
+    if (l.sans_courant) return `<div class="lampe"><div class="nom">${esc(l.nom)}<div class="petit doux">Sans courant : s’allume avec la mise en route de la maison.</div></div><a class="bouton" href="#/arrivee">Mise en route</a></div>`;
     if (l.ko) return `<div class="lampe"><div class="nom">${esc(l.nom)}<div class="ko">Ne répond pas : vérifiez l’interrupteur mural.</div></div><button class="bouton" data-a='${attrJ(Object.assign({ valeur: 'on' }, a))}'>Réessayer</button></div>`;
     const glis = l.variable && l.on ? `<label class="doux petit ligne" style="gap:8px">Intensité<input type="range" min="1" max="100" value="${l.luminosite || 100}" data-lum='${attrJ(Object.assign({ valeur: 'on' }, a))}'></label>` : '';
     const minu = l.minuterie_min && !l.on ? `<button class="bouton sombre" data-a='${attrJ(Object.assign({ valeur: 'on', minutes: true }, a))}'>Allumer ${l.minuterie_min} min</button>` : '';
@@ -424,8 +422,9 @@ function vueSejour() {
   return bandeau('violet', 'S’informer', 'Votre séjour') +
     `<a class="hub violet" href="#/meteo">${ic('meteo', 40, '#A3376F')}<span style="flex:1"><b>Météo</b><span class="doux">${esc(S.etat.exterieur.condition || '')} ${S.etat.exterieur.t ? esc(S.etat.exterieur.t) + ' °C' : ''}</span></span>›</a>
      <a class="hub jaune" href="#/guide">${ic('guide', 40, '#8A6A00')}<span style="flex:1"><b>Guide de la maison</b><span class="doux">Poêles, électricité, dépannage, contacts</span></span>›</a>
-     <a class="hub plein" href="#/arrivee">${ic('arrivee', 36)}<span style="flex:1"><b>J’arrive</b>Mettre la maison en route</span>›</a>
-     <a class="hub sombre" href="#/depart">${ic('depart', 36)}<span style="flex:1"><b>Je pars</b>Fermer la maison</span>›</a>`;
+     <p class="sep-sejour">Arriver et partir</p>
+     <a class="hub ardoise" href="#/arrivee">${ic('arrivee', 30, '#3E4C56')}<span style="flex:1"><b>J’arrive</b><span class="doux">Mettre la maison en route</span></span>›</a>
+     <a class="hub ardoise" href="#/depart">${ic('depart', 30, '#3E4C56')}<span style="flex:1"><b>Je pars</b><span class="doux">Liste de départ et fermeture</span></span>›</a>`;
 }
 
 // ------------------------------------------------------------------ arrivée
@@ -434,7 +433,7 @@ async function vueArrivee() {
   const coches = new Set(local.get('arrivee'));
   const reste = A.mise_en_route.some(x => x.etat === 'attente' || x.etat === 'echec');
   const contacts = (G && G.contacts) || [];
-  return bandeau('violet', 'Arriver', 'Bienvenue aux Alberts', { retour: matchMedia('(max-width:899px)').matches ? '#/sejour' : null }) +
+  return bandeau('ardoise', 'Arriver et partir', 'Bienvenue aux Alberts', { retour: matchMedia('(max-width:899px)').matches ? '#/sejour' : null }) +
   `<div class="grille" style="grid-template-columns:minmax(0,1fr) minmax(0,360px);align-items:start" id="g-arr"><div class="col">
     <div class="carte"><div class="ligne" style="flex-wrap:wrap;align-items:flex-start"><div style="flex:1;min-width:220px"><h2 style="margin:0">Mettre la maison en route</h2><p class="doux">La maison a pu être préparée à distance. Ce bouton termine ce qui reste.</p></div>
       ${reste ? `<button class="bouton violet" data-a='${attrJ({ type: 'mise_en_route' })}'>Terminer la mise en route</button>` : '<span class="pil">Tout est en route</span>'}</div>
@@ -464,7 +463,7 @@ function vueDepart() {
     return `<section class="bloc-dep" style="background:${f};border-color:${b}"><h2 style="font-size:19px;color:${t};margin-bottom:4px">${esc(g.titre)}</h2>${g.items.map(x => x.auto
       ? `<div class="coche"><span class="etat-auto ${x.auto.ok ? 'ok' : 'ko'}">${x.auto.ok ? '✓' : '!'}</span><div style="flex:1"><b>${esc(x.auto.t)}</b><br><span class="doux petit">${esc(x.auto.x)}</span></div>${x.auto.action ? `<button class="bouton sombre" data-a='${attrJ(x.auto.action)}'>${esc(x.auto.action.libelle)}</button>` : ''}</div>`
       : `<div class="coche"><input type="checkbox" id="d${x.cle}" data-coche="depart|${x.cle}" ${coches.has(x.cle) ? 'checked' : ''}><label for="d${x.cle}"><b>${esc(x.geste.t)}</b>${x.geste.x ? `<br><span class="doux petit">${esc(x.geste.x)}</span>` : ''}</label></div>`).join('')}</section>`; };
-  return bandeau('violet', 'Partir', 'Avant de partir', { retour: matchMedia('(max-width:899px)').matches ? '#/sejour' : null,
+  return bandeau('ardoise', 'Arriver et partir', 'Avant de partir', { retour: matchMedia('(max-width:899px)').matches ? '#/sejour' : null,
     droite: `<span class="droite">${faits} sur ${total} faits<br><span style="opacity:.85;font-weight:600">Ne coupez ni l’électricité ni l’eau.</span></span>` }) +
     `<div class="ligne"><span class="progres"><span style="width:${Math.round(100 * faits / total)}%"></span></span></div>
     <div class="grille g2" style="align-items:start"><div class="col">${ordre.slice(0, 2).map(bloc).join('')}</div><div class="col">${ordre.slice(2).map(bloc).join('')}
@@ -481,17 +480,20 @@ function dialogueFermeture() {
     <span class="doux petit gras">Étape 1 sur 2</span><h2 id="t-ferm" style="font-size:26px">Fermer la maison ?</h2>
     ${manquants.length ? `<div class="important"><b>${manquants.length} point${manquants.length > 1 ? 's ne sont' : ' n’est'} pas coché${manquants.length > 1 ? 's' : ''} :</b> ${esc(manquants.slice(0, 6).join(', '))}${manquants.length > 6 ? '…' : ''}</div>` : ''}
     <div><b>La maison va :</b><ul style="margin:6px 0 0;padding-left:20px;line-height:1.6"><li>passer les radiateurs en hors-gel, arrêter l’eau chaude et éteindre les lumières, tout de suite ;</li>
-    <li>couper le boîtier de l’eau chaude et le WiFi dans ${min} minutes ;</li><li>laisser la console des poêles alimentée.</li></ul></div>
+    <li>couper dans ${min} minutes : ${esc(D.coupes.join(', ').toLowerCase())}, le WiFi en dernier ;</li>${D.refroidis.length ? `<li>couper les poêles seulement une fois refroidis, jamais pendant leur ventilation ;</li>` : ''}${D.gardes.length ? `<li>laisser allumés : ${esc(D.gardes.join(', ').toLowerCase())}.</li>` : ''}</ul></div>
+    ${D.refroidis.length ? `<div class="important"><b>Avant de fermer :</b> arrêtez les poêles depuis leur console. Ne débranchez rien vous-même.</div>` : ''}
     <div class="encadre-bleu" style="border-color:var(--warn);background:var(--warn-tint);color:var(--warn-ink)">Une fois le WiFi coupé, ce portail ne sera plus accessible. Pour rallumer, il faudra appeler le propriétaire.</div>
+    ${D.refroidis.length ? `<label class="coche" style="border:0;font-weight:700"><input type="checkbox" id="poeles"> J’ai arrêté les poêles depuis leur console</label>` : ''}
     <label class="coche" style="border:0;font-weight:700"><input type="checkbox" id="pars"> Je pars maintenant, tout le monde est prêt</label>
     <div class="boutons" style="justify-content:flex-end"><button class="bouton" id="annuler" style="border-width:2px;border-color:var(--encre)">Annuler</button><button class="bouton violet" id="ferme" disabled>Fermer la maison</button></div>
-    <p class="doux petit" style="text-align:right">Le bouton s’active une fois la case cochée.</p></div></div>`;
+    <p class="doux petit" style="text-align:right">Le bouton s’active une fois les cases cochées.</p></div></div>`;
   const fermer = () => { c.innerHTML = ''; };
   c.querySelector('#annuler').onclick = fermer;
   c.querySelector('.dialogue').onclick = e => { if (e.target.classList.contains('dialogue')) fermer(); };
-  c.querySelector('#pars').onchange = e => { c.querySelector('#ferme').disabled = !e.target.checked; };
+  const pret = () => c.querySelector('#pars').checked && (!c.querySelector('#poeles') || c.querySelector('#poeles').checked);
+  c.querySelectorAll('#pars,#poeles').forEach(x => { x.onchange = () => { c.querySelector('#ferme').disabled = !pret(); }; });
   c.querySelector('#ferme').onclick = async () => {
-    if (!c.querySelector('#pars').checked) return;
+    if (!pret()) return;
     fermer();
     await agir({ type: 'fermeture', valeur: 'demarrer', confirme: true });
     location.hash = '#/depart';
@@ -500,9 +502,9 @@ function dialogueFermeture() {
 }
 function ecranCompte(F) {
   const r = F.reste || 0, mm = Math.floor(r / 60), ss = String(r % 60).padStart(2, '0');
-  return bandeau('violet', 'Partir', 'Fermeture en cours') + `<div class="carte" style="max-width:560px;margin:0 auto;text-align:center">
+  return bandeau('ardoise', 'Arriver et partir', 'Fermeture en cours') + `<div class="carte" style="max-width:560px;margin:0 auto;text-align:center">
     <span class="doux petit gras">Étape 2 sur 2</span><div class="compte" role="timer" aria-live="polite">${F.phase === 'coupure' ? '…' : `${mm}:${ss}`}</div>
-    <p><b>Radiateurs, eau chaude et lumières : arrêtés.</b></p><p class="doux" style="margin-bottom:14px">${F.phase === 'coupure' ? 'Coupure du WiFi en cours. Bon retour !' : `Boîtier de l’eau chaude et WiFi : coupés dans ${mm} min ${ss}.`}</p>
+    <p><b>Radiateurs, eau chaude et lumières : arrêtés.</b></p><p class="doux" style="margin-bottom:14px">${F.phase === 'coupure' ? 'Coupure du WiFi en cours. Bon retour !' : `Prises et WiFi : coupés dans ${mm} min ${ss}.`}</p>
     ${F.phase === 'compte' ? `<button class="bouton violet large" data-a='${attrJ({ type: 'fermeture', valeur: 'annuler' })}'>Annuler la fermeture</button><p class="doux petit" style="margin-top:8px">Annuler rallume l’eau chaude et garde le WiFi.</p>` : ''}</div>`;
 }
 
