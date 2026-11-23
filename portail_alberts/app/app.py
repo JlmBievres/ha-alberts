@@ -18,7 +18,7 @@ import guide
 import ha
 import maison
 
-VERSION = "0.3.3"
+VERSION = "0.4.0"
 ICI = Path(__file__).parent
 STATIC = ICI / "static"
 maison.DEMO = os.environ.get("DEMO") == "1"
@@ -37,8 +37,8 @@ def charger_config():
     if _CFG["cle"] != cle:
         cfg = yaml.safe_load(p.read_text(encoding="utf-8"))
         _CFG["alerte"] = None
-        if cfg.get("version") != 3:
-            _CFG["alerte"] = f"{p} est à l'ancien format : modèle livré utilisé à la place. Reprendre le modèle 0.3."
+        if cfg.get("version") != 4:
+            _CFG["alerte"] = f"{p} est à l'ancien format : modèle livré utilisé à la place. Reprendre le modèle 0.4."
             print(_CFG["alerte"], flush=True)
             p = ICI / "entities.yaml"
             cfg = yaml.safe_load(p.read_text(encoding="utf-8"))

@@ -1,4 +1,5 @@
-# Portail Les Alberts : description de la maison (format 3, application 0.3 « version simple »).
+# Portail Les Alberts : description de la maison (format 4, application 0.4).
+# Source : documentation/reference-portail-entites.md (projet Claude, état du 23/11/2026).
 #
 # Le portail ne peut agir QUE sur ce qui est décrit ici (liste blanche).
 # Pour l'adapter sans toucher au dépôt : copier ce fichier dans
@@ -7,49 +8,59 @@
 #
 # Ne JAMAIS décrire la prise de la box, des Pi ou du coordinateur Zigbee.
 # Aucune donnée secrète ici : ce fichier est dans un dépôt public.
+# Toujours des entity_id (jamais de device_id).
 
-version: 3
+version: 4
 
 seuils:
-  humidite_max: 70          # % : alerte humidité
-  temp_froide: 14           # °C : pièce froide
-  temp_gel: 5               # °C : risque de gel
+  humidite_max: 70          # % : humidité affichée en orange
+  temp_froide: 12           # °C : température affichée en bleu
   temp_chauffe_attendue: 16 # °C : en Confort sous ce seuil sans consommer = « ne chauffe pas »
   puissance_min_chauffe: 10 # W
 
-# Chauffage simplifié : 4 modes seulement (valeur Home Assistant -> libellé, sous-titre)
+# Modes des radiateurs (valeurs du select fil pilote -> libellé, sous-titre, explication)
 modes:
-  Comfort: {libelle: "Confort", sous: "Journée", icone: soleil, aide: "La température réglée sur le radiateur. Pour une pièce occupée en journée."}
-  ComfortMinus1: {libelle: "Nuit", sous: "−1 °C", icone: lune, aide: "Un degré de moins. Idéal pour dormir."}
-  Eco: {libelle: "Éco", sous: "Absence", icone: feuille, aide: "Environ 3,5 °C de moins. Pour une absence de la journée."}
-  FrostProtection: {libelle: "Hors-gel", sous: "Pièce fermée", icone: flocon, aide: "Environ 7 °C. Pour une pièce inoccupée."}
-modes_chauffe: [Comfort, ComfortMinus1]
-prechauffage: input_boolean.booleen_convecteur_tarif_nuit   # préchauffage heures creuses
+  Comfort: {libelle: "Confort", sous: "Journée", aide: "La température réglée sur le radiateur. Pour une pièce occupée en journée."}
+  ComfortMinus1: {libelle: "Nuit", sous: "−1 °C", aide: "Un degré de moins. Idéal pour dormir."}
+  ComfortMinus2: {libelle: "Confort −2°", sous: "−2 °C", aide: "Deux degrés de moins. Pour une pièce peu utilisée."}
+  Eco: {libelle: "Éco", sous: "Absence", aide: "Environ 3,5 °C de moins. Pour une absence de la journée."}
+  FrostProtection: {libelle: "Hors-gel", sous: "≈ 7 °C", aide: "Maintient environ 7 °C."}
+  "Off": {libelle: "Arrêt", sous: "Maison vide", aide: "Radiateur arrêté. Hors-gel automatique si la pièce descend sous 5 °C."}
+modes_chauffe: [Comfort, ComfortMinus1, ComfortMinus2]
 
-# Ambiances d'éclairage (luminosité appliquée à toutes les lampes de la pièce)
-ambiances:
-  - {id: vive, nom: "Vive", pct: 100}
-  - {id: douce, nom: "Douce", pct: 50}
-  - {id: veilleuse, nom: "Veilleuse", pct: 15}
+# Chauffage de toute la maison : menu « Fil pilote » de Home Assistant.
+# Le portail change le menu ET applique le mode aux radiateurs (comme l'automatisation
+# « Pilotage Chauffage Fil Pilote »), pour ne pas dépendre d'elle.
+maison_chauffage:
+  menu: input_select.fil_pilote
+  options:                        # option du menu -> mode des radiateurs
+    "Confort": Comfort
+    "Confort -1°": ComfortMinus1
+    "Confort -2°": ComfortMinus2
+    "Eco": Eco
+    "Hors-gel": FrostProtection
+    "Arrêt": "Off"
+  chauffe_nuit: automation.mise_en_chauffe_convecteurs_tarif_nuit   # 22:30 Confort -> 06:00 Arrêt
+  chauffe_nuit_texte: "22 h 30 → 6 h"
+
+# Maison en veille : prise qui alimente le pont Hue et la télévision (coupée quand la maison est vide)
+veille_si_coupee: switch.prise_television_switch_3
+HUE: &hue switch.prise_television_switch_3
 
 meteo:
   entite: weather.val_des_pres
   vigilance: sensor.05_weather_alert
   temperature_exterieure: sensor.capteur_exterieur_temperature
+  humidite_exterieure: sensor.capteur_exterieur_humidite
+  risque_gel: sensor.val_des_pres_freeze_chance
   soleil: sun.sun
   lieu: "Val-des-Prés"
 
-# Portes d'entrée : capteurs d'ouverture (on/open = ouverte). Identifiants à renseigner.
-portes: []
-#  - {nom: "Haut", entite: binary_sensor.A_RENSEIGNER_porte_haut}
-#  - {nom: "Bas", entite: binary_sensor.A_RENSEIGNER_porte_bas}
-
 # Pièces. type : convecteur | poele | sans_chauffage | passage
-#   porte : capteur(s) d'ouverture affiché(s) sur la carte (lecture seule) ; avec plusieurs
-#           capteurs, la porte est « ouverte » dès que l'un d'eux l'indique
-#   lampes : chaque lampe pilotable (light.* ou switch.*) ; minuterie_min : bouton « Allumer N min »
-#   ventilation : entité + maintien (minutes) ; le portail la relance tant que dure le maintien
-#   poele.prise : prise qui alimente le poêle (lecture seule, jamais coupée par le portail)
+#   lampes : chaque lampe pilotable ; groupe : sous-titre (ex. « Coin TV ») ;
+#            alimentation : prise dont dépend la lampe (Hue : prise de la télévision)
+#   scenes : listes de scènes Home Assistant (4 au plus par liste)
+#   porte : capteur(s) d'ouverture ; infos : états affichés en lecture seule
 pieces:
   - id: sejour
     nom: Séjour
@@ -57,10 +68,17 @@ pieces:
     temperature: sensor.capteur_sejour_temperature
     humidite: sensor.capteur_sejour_humidity
     poele: {prise: switch.prise_poele_salon_switch_3, puissance: sensor.prise_poele_salon_active_power_3}   # « Prise poele Séjour »
-    lampes:
-      - {id: plafonnier, nom: "Plafonnier, 4 ampoules", entite: light.sejour}
-      - {id: entree, nom: "Lumière de l’entrée", entite: light.strip_entree_lumiere}
     porte: {nom: "Porte d’entrée haute", entite: [binary_sensor.ouverture_haut_ouverture, binary_sensor.ouverture_haut_ouverture_2]}
+    lampes:
+      - {id: plafonnier, nom: "Plafonnier Hue", note: "4 lampes", entite: light.sejour, alimentation: *hue}
+      - {id: entree, nom: "Lumière de l’entrée", entite: light.strip_entree_lumiere}
+    scenes:
+      - titre: Scènes
+        liste:
+          - {nom: Lecture, entite: scene.sejour_lecture}
+          - {nom: Détente, entite: scene.sejour_detente}
+          - {nom: Lumière naturelle, entite: scene.sejour_lumiere_naturelle}
+          - {nom: Veilleuse, entite: scene.sejour_veilleuse}
 
   - id: salon
     nom: Salon
@@ -69,9 +87,27 @@ pieces:
     humidite: sensor.capteur_salon_humidity
     poele: {prise: switch.tz3000_2putqrmw_ts011f_switch, puissance: sensor.tz3000_2putqrmw_ts011f_active_power}   # « Prise Poele Salon »
     lampes:
-      - {id: plafonnier, nom: "Plafonnier, 4 lampes", entite: light.salon}
-      - {id: huego, nom: "Hue Go", entite: light.hue_go_1, alimentation: switch.prise_television_switch_3}
-      - {id: bandeau, nom: "Bandeau du meuble", entite: light.hue_lightstrip_1, alimentation: switch.prise_television_switch_3}
+      - {id: plafonnier, nom: "Plafonnier Hue", note: "4 lampes", entite: light.salon, alimentation: *hue}
+      - {id: huego, nom: "Hue Go", entite: light.hue_go_1, alimentation: *hue}
+      - {id: chevet_bar, nom: "Lampe chevet bar", entite: light.hue_ambiance_lamp_1, alimentation: *hue}
+      - {id: meuble, nom: "Bandeau du meuble", entite: light.hue_lightstrip_1, alimentation: *hue}
+      - {id: tv, nom: "TV", groupe: "Coin TV", entite: light.tv_2, alimentation: *hue}
+      - {id: bandeau_tv, nom: "Bandeau TV", groupe: "Coin TV", entite: light.hue_color_light_1, alimentation: *hue}
+    scenes:
+      - titre: Scènes
+        liste:
+          - {nom: Lecture, entite: scene.salon_lecture}
+          - {nom: Détente, entite: scene.salon_detente}
+          - {nom: Lumière naturelle, entite: scene.salon_lumiere_naturelle}
+          - {nom: Veilleuse, entite: scene.salon_veilleuse}
+      - titre: Coin bar
+        liste:
+          - {nom: Lecture, entite: scene.bar_salon_lecture}
+          - {nom: Détente, entite: scene.bar_salon_detente}
+          - {nom: Veilleuse, entite: scene.bar_salon_veilleuse}
+    infos:
+      - {nom: "Déshumidificateur", icone: goutte, entite: switch.prise_deshumidificateur_switch_3, on: "En marche", off: "Arrêté",
+         aide: "Se lance seul à 22 h 30 si l’humidité dépasse 64 %, s’arrête à 6 h 30."}
 
   - id: meije
     nom: Chambre Meije
@@ -82,42 +118,56 @@ pieces:
       mode: select.convecteur_chambre_meije_mode_du_fil_pilote
       puissance: sensor.convecteur_chambre_meije_demande_instantanee
       interrupteur: switch.convecteur_chambre_meije
-      energie: sensor.convecteur_chambre_meije_consommation
-      modele: "À renseigner"
     lampes: []
     conseils:
-      - "Le sélecteur du convecteur doit rester sur la position pilotée."
-      - "Pour dormir, le mode Nuit suffit : la maison préchauffe en heures creuses."
+      - "Le sélecteur du radiateur doit rester sur la position pilotée."
 
   - id: ecrins
     nom: Chambre Écrins
     type: convecteur
-    temperature: sensor.capteur_ch_parents_temperature   # À CONFIRMER : capteur « ch parents » = Écrins ?
+    temperature: sensor.capteur_ch_parents_temperature    # le capteur s'appelle encore « ch parents »
     humidite: sensor.capteur_ch_parents_humidite
     convecteur:
       mode: select.convecteur_ecrins_mode_du_fil_pilote
       puissance: sensor.convecteur_ecrins_demande_instantanee
       interrupteur: switch.convecteur_ecrins
-      energie: sensor.convecteur_ecrins_consommation
-      modele: "À renseigner"
     lampes:
-      - {id: chambre, nom: "Chambre", entite: light.chambre_a_coucher}
+      - {id: plafonnier, nom: "Plafonnier Hue", entite: light.chambre_a_coucher, alimentation: *hue}
+      - {id: chevet, nom: "Chevet", entite: light.hue_filament_bulb_1, alimentation: *hue}
+    scenes:
+      - titre: Scènes
+        liste:
+          - {nom: Lumineux, entite: scene.chambre_a_coucher_lumineux}
+          - {nom: Atténué, entite: scene.chambre_a_coucher_attenue}
+          - {nom: Veilleuse, entite: scene.chambre_a_coucher_veilleuse}
     conseils:
-      - "Le sélecteur du convecteur doit rester sur la position pilotée."
+      - "Le sélecteur du radiateur doit rester sur la position pilotée."
 
   - id: refuge
     nom: Chambre Refuge
-    type: sans_chauffage
+    type: non_pilote
     temperature: sensor.capteur_ch_refuge_temperature
     humidite: sensor.capteur_ch_refuge_humidite
     lampes:
-      - {id: groupe, nom: "Toute la chambre", entite: light.chambre_refuge_groupe}
+      - {id: plafond, nom: "Plafond Hue", entite: light.chambre_refuge, alimentation: *hue}
+      - {id: lit, nom: "Lampe du lit", entite: light.lampe_lit_ch_refuge_light}
+      - {id: lampe2, nom: "Lampe 2", entite: light.lampe_2_ch_refuge_light}
+      - {id: lampe3, nom: "Lampe 3", note: "Couleur", entite: light.sourcing_creation_eb_e14_p45_rgbw_light}
+      - {id: bandeau_lit, nom: "Bandeau du lit", entite: light.light_a11_light}
       - {id: bureau, nom: "Bandeau du bureau", entite: light.strip_bureau_light, alimentation: switch.prise_chauffe_eau_switch_3}
+    scenes:
+      - titre: Scènes
+        liste:
+          - {nom: Lecture, entite: scene.chambre_refuge_lecture}
+          - {nom: Détente, entite: scene.chambre_refuge_detente}
+          - {nom: Lumière naturelle, entite: scene.chambre_refuge_lumiere_naturelle}
+          - {nom: Veilleuse, entite: scene.chambre_refuge_veilleuse}
     conseils:
-      - "Air sec : laissez la porte de la salle d'eau entrouverte après la douche."
+      - "Radiateur pas encore piloté : réglez-le directement sur l’appareil."
+      - "Deux poussoirs commandent aussi l’éclairage : près de la porte et au grand lit."
 
   - id: entree
-    nom: Entrée bas
+    nom: Entrée basse
     type: convecteur
     temperature: sensor.capteur_entree_temperature
     humidite: sensor.capteur_entree_humidite
@@ -125,10 +175,10 @@ pieces:
       mode: select.convecteur_entree_bas_mode_du_fil_pilote
       puissance: sensor.convecteur_entree_bas_demande_instantanee
       interrupteur: switch.convecteur_entree_bas
-      energie: sensor.convecteur_entree_bas_consommation
-      modele: "À renseigner"
     lampes: []
     porte: {nom: "Porte d’entrée basse", entite: [binary_sensor.ouverture_bas_ouverture, binary_sensor.ouverture_bas_ouverture_2]}
+    infos:
+      - {nom: "Dehors", icone: thermo, mesure: sensor.capteur_exterieur_temperature, unite: "°C", mesure2: sensor.capteur_exterieur_humidite, unite2: "%"}
 
   - id: atelier
     nom: Atelier
@@ -139,11 +189,10 @@ pieces:
       mode: select.convecteur_atelier_mode_du_fil_pilote
       puissance: sensor.convecteur_atelier_demande_instantanee
       interrupteur: switch.convecteur_atelier
-      energie: sensor.convecteur_atelier_consommation
-      modele: "À renseigner"
     lampes: []
-    conseils:
-      - "Le chauffe-eau de la maison est dans l'atelier : laissez son accès dégagé."
+    infos:
+      - {nom: "Chauffe-eau", icone: goutte, entite: switch.atelier_chauffe_eau, on: "Mode nuit", off: "Arrêté", indispo: "Boîtier Tydom coupé",
+         aide: "En mode nuit, le ballon chauffe aux heures creuses."}
 
   - id: sdb
     nom: Salle de bain cave
@@ -154,34 +203,30 @@ pieces:
       mode: select.convecteur_sdb_cave_mode_du_fil_pilote
       puissance: sensor.convecteur_sdb_cave_demande_instantanee
       interrupteur: switch.convecteur_sdb_cave
-      energie: sensor.convecteur_sdb_cave_consommation
-      modele: "À renseigner"
     lampes:
-      - {id: plafonnier, nom: "Plafonnier", entite: light.salle_de_bain_cave}
+      - {id: ampoule1, nom: "Ampoule 1", entite: light.ampoule_1_sdb_light}
+      - {id: ampoule2, nom: "Ampoule 2", entite: light.ampoule_2_sdb_light}
     ventilation:
       entite: light.commande_vmc
       maintien_min: 30
       arret_auto: "S'arrête seule 5 min après l'extinction de la lumière."
     conseils:
-      - "Bouton de gauche : un clic allume la lumière, double clic lance la ventilation."
-      - "Bouton de droite : un clic éteint, la ventilation s'arrête 5 minutes après ; double clic arrête la ventilation."
-      - "Pièce encore humide : maintenez la ventilation 30 min et laissez la porte ouverte."
+      - "La télécommande murale commande aussi la lumière et la ventilation."
 
   - id: douche
     nom: Douche étage
     type: sans_chauffage
     temperature: sensor.capteur_douche_etage_temperature
     humidite: sensor.capteur_douche_etage_humidity
-    lampes: []                      # À RENSEIGNER si les ampoules sont pilotables
+    lampes: []
     conseils:
-      - "Pas de ventilation mécanique à l'étage : après la douche, ouvrez la fenêtre quelques minutes et laissez la porte entrouverte."
-      - "Raclez la paroi : l'eau est très calcaire."
+      - "Pas de ventilation mécanique à l'étage : après la douche, ouvrez la fenêtre quelques minutes."
 
   - id: escalier
     nom: Escalier
     type: passage
     lampes:
-      - {id: escalier, nom: "Escalier", entite: light.escalier, minuterie_min: 10}
+      - {id: escalier, nom: "Escalier", note: "2 lampes", entite: light.escalier, minuterie_min: 10}
     conseils:
       - "La nuit, un détecteur allume au passage et éteint 2 minutes après le dernier mouvement."
       - "Boutons poussoirs : un clic pleine puissance, double clic demi-puissance, appui long extinction."
@@ -204,10 +249,10 @@ prises:
       - {nom: "WiFi séjour", entite: switch.prise_wi_fi_sejour_commutateur}
   - groupe: Éclairage et télévision
     prises:
-      - {nom: "Pont Hue et télévision", entite: switch.prise_television_switch_3}
-      - {nom: "Prise entrée haute", entite: switch.prise_entree_basse_switch}
-      - {nom: "Prise entrée basse", entite: switch.prise_wi_fi_salon_commutateur}
+      - {nom: "Pont Hue et télévision", entite: switch.prise_television_switch_3, puissance: sensor.prise_television_active_power_3}
+      - {nom: "Prise entrée haute", entite: switch.prise_entree_basse_switch, puissance: sensor.prise_entree_basse_active_power}
+      - {nom: "Prise entrée basse", entite: switch.prise_wi_fi_salon_commutateur, puissance: sensor.prise_wi_fi_salon_puissance}
   - groupe: Confort
     prises:
-      - {nom: "Déshumidificateur", entite: switch.prise_deshumidificateur_switch_3}
+      - {nom: "Déshumidificateur", entite: switch.prise_deshumidificateur_switch_3, puissance: sensor.prise_deshumidificateur_active_power_3}
       - {nom: "Extracteur salle de bain cave", entite: light.commande_vmc}

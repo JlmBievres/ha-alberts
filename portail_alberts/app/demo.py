@@ -65,6 +65,43 @@ def etats():
         "binary_sensor.ouverture_bas_ouverture": _e("on"), "binary_sensor.ouverture_bas_ouverture_2": _e("unavailable"),
         "switch.prise_deshumidificateur_switch_3": _e("off"), "switch.atelier_chauffe_eau": _e("on"),
     }
+    # 0.4 : données du 23/11 (maison en veille), lampes réelles, scènes, menu fil pilote
+    for k, v in {"sensor.capteur_sejour_temperature": "14.22", "sensor.capteur_salon_temperature": "13.95",
+                 "sensor.capteur_ch_meije_temperature": "11.17", "sensor.capteur_ch_parents_temperature": "14.35",
+                 "sensor.capteur_ch_refuge_temperature": "13.88", "sensor.capteur_entree_temperature": "13.12",
+                 "sensor.capteur_atelier_temperature": "10.26", "sensor.capteur_sdbcave_temperature": "12.46",
+                 "sensor.capteur_douche_etage_temperature": "15.57", "sensor.capteur_exterieur_temperature": "2.41",
+                 "sensor.capteur_exterieur_humidite": "66.95", "sensor.val_des_pres_freeze_chance": "70",
+                 "sensor.capteur_sdbcave_humidity": "76.09", "sensor.capteur_entree_humidite": "67.61"}.items():
+        E[k] = _e(v)
+    for m in ("chambre_meije", "ecrins", "entree_bas", "sdb_cave"):
+        E[f"select.convecteur_{m}_mode_du_fil_pilote"] = _e("Off", options=OPTS)
+        E[f"sensor.convecteur_{m}_demande_instantanee"] = _e("0.0")
+    E["select.convecteur_atelier_mode_du_fil_pilote"] = _e("FrostProtection", options=OPTS)
+    E["sensor.convecteur_atelier_demande_instantanee"] = _e("0.0")
+    E["input_select.fil_pilote"] = _e("Arrêt", options=["Confort", "Confort -1°", "Confort -2°", "Eco", "Hors-gel", "Arrêt"])
+    E["automation.mise_en_chauffe_convecteurs_tarif_nuit"] = _e("off")
+    E["switch.prise_television_switch_3"] = _e("off")
+    E["switch.prise_chauffe_eau_switch_3"] = _e("off")
+    E["switch.atelier_chauffe_eau"] = _e("unavailable")
+    E["switch.prise_poele_salon_switch_3"] = _e("off"); E["switch.tz3000_2putqrmw_ts011f_switch"] = _e("off")
+    E["sensor.prise_poele_salon_active_power_3"] = _e("0.0")
+    for l in ("sejour", "salon", "hue_go_1", "hue_ambiance_lamp_1", "hue_lightstrip_1", "tv_2", "hue_color_light_1",
+              "chambre_a_coucher", "hue_filament_bulb_1", "chambre_refuge", "strip_entree_lumiere", "strip_bureau_light"):
+        E[f"light.{l}"] = _e("unavailable")
+    for l in ("lampe_lit_ch_refuge_light", "lampe_2_ch_refuge_light", "sourcing_creation_eb_e14_p45_rgbw_light", "light_a11_light",
+              "ampoule_1_sdb_light", "ampoule_2_sdb_light", "escalier"):
+        E[f"light.{l}"] = _e("off", **DIM)
+    for s in ("sejour", "salon", "chambre_refuge"):
+        for n in ("lecture", "detente", "lumiere_naturelle", "veilleuse"):
+            E[f"scene.{s}_{n}"] = _e("unknown")
+    for n in ("lecture", "detente", "veilleuse"):
+        E[f"scene.bar_salon_{n}"] = _e("unknown")
+    for n in ("lumineux", "attenue", "veilleuse"):
+        E[f"scene.chambre_a_coucher_{n}"] = _e("unknown")
+    for k in ("sensor.prise_entree_basse_active_power", "sensor.prise_wi_fi_salon_puissance", "sensor.prise_television_active_power_3",
+              "sensor.prise_deshumidificateur_active_power_3"):
+        E[k] = _e("0.0")
     return E
 
 
@@ -80,6 +117,12 @@ def service(E, dom, nom, data):
     e = E.setdefault(eid, {"state": None, "attributes": {}})
     if e["state"] == "unavailable":
         return                                   # simule une lampe coupée au mur
+    if dom == "scene":
+        e["state"] = "2026-11-23T22:00:00"
+        return
+    if dom == "automation":
+        e["state"] = "on" if nom == "turn_on" else "off"
+        return
     if nom == "select_option":
         e["state"] = data["option"]
     elif nom in ("turn_on", "turn_off"):

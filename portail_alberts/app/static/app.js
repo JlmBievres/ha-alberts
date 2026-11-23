@@ -44,6 +44,7 @@ const P = {
   soleil: 'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4',
   feuille: 'M5 19c0-9 6-14 15-14 0 9-5 15-14 15M5 19l8-8',
   flocon: 'M12 2v20M4 6l16 12M20 6L4 18M9 3l3 3 3-3M9 21l3-3 3 3',
+  info: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 11v5M12 8h.01',
 };
 const ic = (n, t = 22, c = 'currentColor', w = 2) =>
   `<svg width="${t}" height="${t}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${P[n] || ''}"></path></svg>`;
@@ -118,7 +119,7 @@ document.addEventListener('click', e => {
     e.preventDefault(); e.stopPropagation();
     // Réponse visuelle immédiate, sans attendre Home Assistant
     if (b.classList.contains('inter')) b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') !== 'true');
-    else if (b.parentElement.matches('.modes4,.ambiances')) { b.parentElement.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); }
+    else if (b.parentElement.matches('.modes4,.modes6,.segment')) { b.parentElement.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); }
     agir(JSON.parse(b.dataset.a), b); return;
   }
   const dp = e.target.closest('[data-dep]');
@@ -191,41 +192,60 @@ function inter(on, label, a, taille = '') {
 }
 
 // ------------------------------------------------------------------ accueil
+function bandeVeille() {
+  return `<div class="veille-info">${ic('info', 20, '#3E4C56')}<span><b>Maison en veille.</b> Prises coupées : les lampes Hue et les bandeaux sont indisponibles. Radiateurs à l’arrêt, hors-gel automatique sous 5 °C.</span></div>`;
+}
+function chauffageMaison() {
+  const M = S.etat.maison_chauffage;
+  if (!M) return '';
+  return `<section class="chauffage-maison"><div class="titre"><b>Chauffage de toute la maison</b><span>Les 5 radiateurs. Pratique quand on sort</span></div>
+    <div class="segment">${M.options.map(o => `<button class="${o === M.mode ? 'on' : ''}" aria-pressed="${o === M.mode}" data-a='${attrJ({ type: 'maison_mode', valeur: o })}'>${esc(o === 'Eco' ? 'Éco' : o.replace(/ -(\d)/, ' −$1'))}</button>`).join('')}</div>
+    ${M.nuit === null ? '' : `<div class="nuit">${ic('lune', 20, '#3A6EA5')}<span><b>Chauffe de nuit</b><br><span class="doux">${esc(M.nuit_texte)}</span></span>
+      ${inter(M.nuit, 'Chauffe de nuit', { type: 'chauffe_nuit', valeur: M.nuit ? 'off' : 'on' }, ' bleu')}</div>`}</section>`;
+}
 function accueil() {
   const E = S.etat, x = E.exterieur;
+  const dehors = `Dehors ${x.t ? esc(x.t) + ' °C' : '—'}${x.h ? ' · ' + esc(x.h) : ''}<br>${x.gel ? `risque de gel ${x.gel} %` : esc((x.condition || '').toLowerCase())}`;
   return `<header class="bandeau grand"><div><span class="sur">Montgenèvre · Hautes-Alpes</span><h1>Bienvenue aux Alberts</h1></div>
-    <span class="droite" style="text-shadow:0 1px 2px rgba(0,0,0,.25)">Dehors ${x.t ? esc(x.t) + ' °C' : '—'}<br>${esc((x.condition || '').toLowerCase())}</span></header>
-    <h2 class="titre-page">Les pièces</h2>
+    <span class="droite" style="text-shadow:0 1px 2px rgba(0,0,0,.25)">${dehors}</span></header>
+    ${E.veille ? bandeVeille() : ''}${chauffageMaison()}
     <div class="grille g5">${E.pieces.map(cartePiece).join('')}</div>`;
 }
-const DIAG = { chauffe: ['#FDE8D7', '#8A3E0E'], ok: ['#E4F1EA', '#2F6B4F'], panne: ['#B4561A', '#FFFFFF'], eco: ['#EEF1F3', '#3E4C56'], arret: ['#EEF1F3', '#56656F'], ko: ['#B4561A', '#FFFFFF'] };
+const DIAG = { chauffe: ['#FDE8D7', '#8A3E0E'], ok: ['#E4F1EA', '#2F6B4F'], panne: ['#B4561A', '#FFFFFF'], eco: ['#EEF1F3', '#3E4C56'],
+  horsgel: ['#F1F5FA', '#234A75'], arret: ['#EEF1F3', '#56656F'], ko: ['#B4561A', '#FFFFFF'] };
+const pastille = (t, [f, c]) => `<span class="pastille" style="background:${f};color:${c}">${esc(t)}</span>`;
 function ligneChauffage(p) {
   const c = p.chauffage;
-  if (!c) return p.t ? '<span class="petit" style="color:#8A97A1">Pas de chauffage</span>' : '<span class="petit doux">Détecteur la nuit</span>';
-  if (c.type === 'poele') return `<span class="ligne-ch">${ic('flamme', 16, '#7A4E24')}<b>Poêle</b><span class="pastille" style="background:${c.etat === 'on' ? '#FDE8D7' : '#EEF1F3'};color:${c.etat === 'on' ? '#8A3E0E' : '#56656F'}">${esc(c.libelle)}</span></span>`;
-  const [f, t] = DIAG[c.diag] || DIAG.arret;
-  const court = { chauffe: 'chauffe', ok: 'à température', panne: 'ne chauffe pas', eco: 'éco', arret: 'hors-gel', ko: 'ne répond pas' }[c.diag];
-  return `<span class="ligne-ch">${ic('chauffage', 16, '#3A6EA5')}<b>${esc(c.libelle)}</b><span class="pastille" style="background:${f};color:${t}">${court}</span></span>`;
+  if (!c) return p.t ? `<span class="ligne-ch" style="color:#8A97A1">${ic('chauffage', 16, '#8A97A1')}Pas de chauffage</span>` : '';
+  if (c.type === 'poele') return `<span class="ligne-ch">${ic('flamme', 16, '#7A4E24')}<b>Poêle</b>${pastille(c.libelle, c.etat === 'on' ? DIAG.chauffe : DIAG.arret)}</span>`;
+  if (c.type === 'non_pilote') return `<span class="ligne-ch">${ic('chauffage', 16, '#3A6EA5')}<b>Radiateur</b>${pastille('Non piloté', DIAG.horsgel)}</span>`;
+  const court = { chauffe: 'Chauffe', ok: c.libelle, panne: 'Ne chauffe pas', eco: 'Éco', horsgel: 'Hors-gel', arret: 'Arrêt', ko: 'Ne répond pas' }[c.diag];
+  return `<span class="ligne-ch">${ic('chauffage', 16, '#3A6EA5')}<b>Radiateur</b>${pastille(court, DIAG[c.diag] || DIAG.arret)}</span>`;
 }
-function lignePorte(p, bord = true) {
-  const o = p.porte.etat === 'ouverte', k = p.porte.etat === 'inconnu';
-  return `<div class="pied-lum${bord ? '' : ' sans-bord'}">${ic('porte', 20, o ? '#B4561A' : k ? '#8A97A1' : '#2F6B4F')}<span style="flex:1;color:${o ? 'var(--warn)' : k ? '#8A97A1' : 'var(--ok)'}">Porte : ${k ? 'état inconnu' : o ? 'ouverte' : 'fermée'}</span></div>`;
+const ICONE_INFO = { goutte: 'goutte', vent: 'vent', thermo: 'chauffage' };
+function lignesInfos(p) {
+  const l = p.infos.filter(i => i.etat !== 'mesure').map(i => `<span class="ligne-ch">${ic(ICONE_INFO[i.icone] || 'info', 16, '#56656F')}${esc(i.nom)} : ${esc(i.texte.toLowerCase())}</span>`);
+  if (p.ventilation) l.push(`<span class="ligne-ch">${ic('vent', 16, '#56656F')}Ventilation : ${p.ventilation.on ? 'en marche' : 'arrêtée'}</span>`);
+  if (p.porte) {
+    const o = p.porte.etat === 'ouverte', k = p.porte.etat === 'inconnu';
+    l.push(`<span class="ligne-ch" style="color:${o ? 'var(--warn)' : k ? '#8A97A1' : 'var(--ok)'}">${ic('porte', 16, o ? '#B4561A' : k ? '#8A97A1' : '#2F6B4F')}Porte : ${k ? 'état inconnu' : o ? 'ouverte' : 'fermée'}</span>`);
+  }
+  return l.join('');
+}
+function resumeLampes(L) {
+  const n = `${L.nb} lampe${L.nb > 1 ? 's' : ''}`;
+  return L.nb_indispo ? `${n} · ${L.nb_indispo === L.nb ? 'indisponibles' : L.nb_indispo + ' indisponible' + (L.nb_indispo > 1 ? 's' : '')}` : n;
 }
 function cartePiece(p) {
   const L = p.lumiere, on = L.etat === 'on';
-  let pied = '';
-  if (L.etat !== 'none') {
-    pied = `<div class="pied-lum">${ic('ampoule', 20, on ? '#8A6A00' : '#56656F', 2.2)}<span style="flex:1;color:${on ? 'var(--lum-ink)' : 'var(--doux)'}">${on ? (L.nb > 1 ? L.texte : 'Allumée') : 'Éteinte'}</span>
-       ${inter(on, 'Lumière ' + p.nom, { type: 'piece_lumiere', piece: p.id, valeur: on ? 'off' : 'on' })}</div>`;
-    if (p.porte) pied = lignePorte(p) + pied.replace('class="pied-lum"', 'class="pied-lum sans-bord"');
-  } else if (p.porte) {
-    pied = lignePorte(p);
-  } else {
-    pied = `<div class="pied-lum aucun">${ic('ampoule', 20, '#8A97A1', 2.2)}Pas de lumière pilotée</div>`;
-  }
+  const froid = p.t && parseFloat(p.t.replace(',', '.')) < 12;
+  const pied = L.etat === 'none'
+    ? `<div class="pied-lum aucun">${ic('ampoule', 18, '#8A97A1', 2.2)}Pas de lumière pilotée</div>`
+    : `<div class="pied-lum">${ic('ampoule', 18, on ? '#8A6A00' : '#56656F', 2.2)}<span style="flex:1;min-width:0;font-size:13px;color:var(--doux)"><b style="color:${on ? 'var(--lum-ink)' : 'var(--encre)'}">${on ? (L.nb > 1 ? L.nb_on + ' allumée' + (L.nb_on > 1 ? 's' : '') : 'Allumée') : 'Éteintes'}</b><br>${esc(resumeLampes(L))}</span>
+       ${L.nb_indispo === L.nb ? '' : inter(on, 'Lumières ' + p.nom, { type: 'piece_lumiere', piece: p.id, valeur: on ? 'off' : 'on' })}</div>`;
   return `<div class="piece${on ? ' allumee' : ''}"><a class="nom" href="#/piece/${esc(p.id)}">${esc(p.nom)} ›</a>
-    ${p.t ? `<span style="display:flex;align-items:baseline;gap:8px"><span class="temp">${esc(p.t)}°</span><span class="${p.humide ? 'etat-ko' : 'doux'}">${esc(p.h || '')}</span></span>` : '<span style="height:38px"></span>'}
-    ${ligneChauffage(p)}${pied}</div>`;
+    ${p.t ? `<span style="display:flex;align-items:baseline;gap:8px"><span class="temp" style="${froid ? 'color:#1E5A8A' : ''}">${esc(p.t)}°</span><span class="${p.humide ? 'etat-ko' : 'doux'}">${esc(p.h || '')}</span></span>` : '<span class="doux petit">Pas de capteur</span>'}
+    ${ligneChauffage(p)}${lignesInfos(p)}${pied}</div>`;
 }
 
 // ------------------------------------------------------------------ pièce
@@ -233,65 +253,72 @@ function vuePiece(id) {
   const p = S.etat.pieces.find(x => x.id === id);
   if (!p) return bandeau('bleu', 'Pièce', 'Pièce inconnue', { retour: '#/' });
   const droite = p.t ? `<span class="droite"><b>${esc(p.t)} °C</b>${p.h ? esc(p.h) + ' d’humidité' : ''}</span>` : '';
-  const droiteCol = [];
-  if (p.chauffage?.type === 'poele') droiteCol.push(cartePoele(p));
-  if (p.chauffage?.type === 'radiateur') droiteCol.push(carteRadiateur(p));
-  if (p.porte) droiteCol.push(cartePorte(p));
-  if (p.ventilation) droiteCol.push(carteVentilation(p));
-  if (p.conseils.length) droiteCol.push(`<div class="carte"><h2>Bon à savoir</h2><ul style="margin:0;padding-left:20px;line-height:1.6">${p.conseils.map(c => `<li>${esc(c)}</li>`).join('')}</ul></div>`);
-  const sansLumiere = p.lumiere.etat === 'none';
+  const col = [];
+  if (p.humide && p.ventilation) col.push(`<div class="important" style="border-left:6px solid var(--warn)"><b>Pièce humide (${esc(p.h)}).</b> Lancez la ventilation et laissez la porte ouverte.</div>`);
+  if (p.chauffage?.type === 'poele') col.push(cartePoele(p));
+  if (p.chauffage?.type === 'radiateur') col.push(carteRadiateur(p));
+  if (p.chauffage?.type === 'non_pilote') col.push(carteInfo('chauffage', '#3A6EA5', 'Radiateur pas encore piloté', 'Réglez-le directement sur l’appareil, avec sa molette.'));
+  if (p.ventilation) col.push(carteVentilation(p));
+  if (p.porte) col.push(cartePorte(p));
+  p.infos.forEach(i => col.push(carteInfo(ICONE_INFO[i.icone] || 'info', i.etat === 'on' ? '#2F6B4F' : '#56656F', i.nom, i.texte + (i.aide ? ' — ' + i.aide : ''))));
+  if (p.conseils.length) col.push(`<div class="carte"><h2>Bon à savoir</h2><ul style="margin:0;padding-left:20px;line-height:1.6">${p.conseils.map(c => `<li>${esc(c)}</li>`).join('')}</ul></div>`);
   let gauche = panneauLumieres(p);
-  if (sansLumiere && droiteCol.length) {          // pas de lumière : le chauffage passe devant
-    gauche = droiteCol.shift();
-    droiteCol.push(panneauLumieres(p));
-  }
-  return bandeau('bleu', 'Pièce', esc(p.nom), { retour: '#/', droite }) +
-    `<div class="grille" style="grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);align-items:start" id="g-piece">
-     <div>${gauche}</div><div class="col">${droiteCol.join('')}</div></div>
+  if (p.lumiere.etat === 'none' && col.length) { gauche = col.shift(); col.push(panneauLumieres(p)); }
+  return bandeau('bleu', SUR[p.type] || 'Pièce', esc(p.nom), { retour: '#/', droite }) +
+    `<div class="grille" style="grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);align-items:start" id="g-piece">
+     <div class="col">${gauche}</div><div class="col">${col.join('')}</div></div>
      <style>@media (max-width:899px){#g-piece{grid-template-columns:minmax(0,1fr)!important}}</style>`;
+}
+const SUR = { convecteur: 'Pièce', poele: 'Pièce · avec poêle', sans_chauffage: 'Pièce · sans chauffage', non_pilote: 'Chambre', passage: 'Passage · éclairage automatique' };
+function carteInfo(icone, coul, titre, texte) {
+  return `<div class="carte ligne" style="align-items:flex-start">${ic(icone, 22, coul)}<div><b>${esc(titre)}</b><div class="doux petit">${esc(texte)}</div></div></div>`;
 }
 function panneauLumieres(p) {
   const L = p.lumiere;
-  if (L.etat === 'none') return `<div class="carte ligne">${ic('ampoule', 22, '#8A97A1')}<div><b>Pas de lumière pilotée</b><div class="doux petit">Utilisez les interrupteurs de la pièce.</div></div></div>`;
-  const on = L.etat === 'on';
-  const amb = L.variable ? `<div class="sous-titre">Ambiance</div><div class="ambiances">${S.etat.ambiances.map(a =>
-    `<button class="${on && L.luminosite && Math.abs(L.luminosite - a.pct) <= 3 ? 'on' : ''}" data-a='${attrJ({ type: 'piece_lumiere', piece: p.id, valeur: 'ambiance', ambiance: a.id })}'>${esc(a.nom)}<span>${a.pct} %</span></button>`).join('')}</div>` : '';
-  const lampes = p.lampes.length > 1 || p.lampes.some(l => l.variable || l.minuterie_min) ? `<div class="sous-titre">${p.lampes.length > 1 ? 'Lampe par lampe' : 'Réglage'}</div>${p.lampes.map(l => ligneLampe(p, l)).join('')}` : '';
-  return `<section class="panneau-lum"><div class="ligne"><div style="flex:1"><h2>Lumières</h2><div class="sous">${p.lampes.length > 1 ? (L.nb_on ? `${L.nb_on} lampe${L.nb_on > 1 ? 's' : ''} allumée${L.nb_on > 1 ? 's' : ''} sur ${L.nb}` : 'Aucune lampe allumée') : esc(L.texte)}</div></div>
-    ${inter(on, 'Toute la pièce', { type: 'piece_lumiere', piece: p.id, valeur: on ? 'off' : 'on' }, ' grand')}</div>
-    ${amb}${lampes}<p class="petit" style="color:#6B5A1E;margin:0">Une lampe ne répond pas ? Vérifiez que son interrupteur mural est allumé.</p></section>`;
+  if (L.etat === 'none') return carteInfo('ampoule', '#8A97A1', 'Pas de lumière pilotée', 'Utilisez les interrupteurs de la pièce.');
+  const on = L.etat === 'on', tous_ko = L.nb_indispo === L.nb;
+  const scenes = p.scenes.map(g => `<div class="sous-titre">${esc(g.titre)}</div><div class="scenes">${g.liste.map(s =>
+    `<button ${tous_ko ? 'disabled' : ''} data-a='${attrJ({ type: 'scene', piece: p.id, scene: s.id })}'>${esc(s.nom)}</button>`).join('')}</div>`).join('');
+  let groupe = null, lignes = '';
+  p.lampes.forEach(l => {
+    if ((l.groupe || '') !== groupe) { groupe = l.groupe || ''; lignes += `<div class="sous-titre">${esc(groupe || (p.lampes.length > 1 ? 'Lampes' : 'Réglage'))}</div>`; }
+    lignes += ligneLampe(p, l);
+  });
+  const sous = tous_ko ? 'Indisponibles pour le moment' : (on ? `${L.nb_on} allumée${L.nb_on > 1 ? 's' : ''} sur ${L.nb}` : (L.nb > 1 ? 'Toutes éteintes' : 'Éteinte'));
+  return `<section class="panneau-lum"><div class="ligne"><div style="flex:1"><h2>Lumières</h2><div class="sous">${sous}${L.nb_indispo && !tous_ko ? ` · ${L.nb_indispo} indisponible${L.nb_indispo > 1 ? 's' : ''}` : ''}</div></div>
+    ${tous_ko ? '' : inter(on, 'Toute la pièce', { type: 'piece_lumiere', piece: p.id, valeur: on ? 'off' : 'on' }, ' grand')}</div>
+    ${tous_ko && S.etat.veille ? '<p class="petit" style="color:#6B5A1E;margin:0">La maison est en veille : l’éclairage revient à la mise en route.</p>' : ''}
+    ${scenes}${lignes}</section>`;
 }
 function ligneLampe(p, l) {
   const a = { type: 'lampe', piece: p.id, lampe: l.id };
-  if (l.sans_courant) return `<div class="lampe-c"><div class="ligne">${ic('ampoule', 20, '#8A97A1')}<span style="flex:1"><b>${esc(l.nom)}</b><br><span class="petit doux">Sans courant : prise coupée</span></span></div></div>`;
-  if (l.ko) return `<div class="lampe-c"><div class="ligne">${ic('ampoule', 20, '#B4561A')}<span style="flex:1"><b>${esc(l.nom)}</b><br><span class="ko">Ne répond pas : vérifiez l’interrupteur mural.</span></span>
+  const note = l.note ? `<br><span class="petit doux">${esc(l.note)}</span>` : '';
+  if (l.sans_courant) return `<div class="lampe-c grise-l"><div class="ligne">${ic('ampoule', 20, '#8A97A1')}<span style="flex:1"><b>${esc(l.nom)}</b><br><span class="petit doux">Indisponible : sa prise est coupée (maison en veille)</span></span></div></div>`;
+  if (l.ko) return `<div class="lampe-c grise-l"><div class="ligne">${ic('ampoule', 20, '#8A97A1')}<span style="flex:1"><b>${esc(l.nom)}</b><br><span class="petit doux">Indisponible : vérifiez son interrupteur mural</span></span>
     <button class="bouton" data-a='${attrJ(Object.assign({ valeur: 'on' }, a))}'>Réessayer</button></div></div>`;
   const glis = l.variable && l.on ? `<label class="curseur"><output>${l.luminosite || 100} %</output><input type="range" min="1" max="100" value="${l.luminosite || 100}" aria-label="Intensité ${esc(l.nom)}" data-glisse='${attrJ(Object.assign({ valeur: 'on' }, a))}'></label>` : '';
   const minu = l.minuterie_min && !l.on ? `<button class="bouton" data-a='${attrJ(Object.assign({ valeur: 'on', minutes: true }, a))}'>Allumer ${l.minuterie_min} min</button>` : '';
   const reste = l.reste ? `<br><span class="petit" style="color:#6B5A1E">S’éteint dans ${Math.ceil(l.reste / 60)} min</span>` : '';
-  return `<div class="lampe-c"><div class="ligne">${ic('ampoule', 20, l.on ? '#8A6A00' : '#8A97A1')}<span style="flex:1"><b>${esc(l.nom)}</b>${reste}</span>${minu}
+  return `<div class="lampe-c"><div class="ligne">${ic('ampoule', 20, l.on ? '#8A6A00' : '#8A97A1')}<span style="flex:1"><b>${esc(l.nom)}</b>${note}${reste}</span>${minu}
     ${inter(l.on, l.nom, Object.assign({ valeur: l.on ? 'off' : 'on' }, a))}</div>${glis}</div>`;
 }
 function cartePoele(p) {
-  const c = p.chauffage, cl = c.etat === 'on' ? '' : ' gris';
-  return `<section class="poele"><div class="ligne">${ic('flamme', 26, '#7A4E24')}<h2 style="flex:1">Chauffage : poêle</h2><span class="pil${cl}">${esc(c.libelle)}</span></div>
-    <div>Le poêle se règle sur sa console. Remplissez-le et nettoyez-le tous les deux jours, poêle froid.</div>
+  const c = p.chauffage;
+  return `<section class="poele"><div class="ligne">${ic('flamme', 26, '#7A4E24')}<h2 style="flex:1">Poêle</h2><span class="pil${c.etat === 'on' ? '' : ' gris'}">${esc(c.libelle)}</span></div>
+    <div>${c.etat === 'off' ? 'Sa prise est coupée quand la maison est vide. ' : ''}Il se règle sur sa console. Remplissez-le et nettoyez-le tous les deux jours, poêle froid.</div>
     <div class="boutons"><a class="bouton poele" href="#/guide/nettoyer">Nettoyage pas à pas</a><a class="bouton" href="#/guide/alarme">Le poêle est en alarme</a></div></section>`;
 }
 function carteRadiateur(p) {
   const c = p.chauffage;
   if (!c.dispo) return `<section class="carte radiateur"><h2>Chauffage</h2><p class="etat-ko">Le radiateur ne répond pas. Vérifiez qu’il est sous tension.</p></section>`;
-  const [f, t] = DIAG[c.diag] || DIAG.arret;
-  const pre = S.etat.prechauffage;
-  return `<section class="carte radiateur"><div class="ligne" style="flex-wrap:wrap"><h2 style="flex:1;margin:0">Chauffage</h2><span class="pastille grande" style="background:${f};color:${t}">${esc(c.etat)}</span></div>
+  return `<section class="carte radiateur"><div class="ligne" style="flex-wrap:wrap"><h2 style="flex:1;margin:0">Chauffage</h2>${pastille(c.etat, DIAG[c.diag] || DIAG.arret).replace('class="pastille"', 'class="pastille grande"')}</div>
     ${c.panne ? `<div class="important" style="margin-top:10px"><b>La pièce reste froide.</b> Vérifiez que le sélecteur du radiateur est sur la position pilotée et que son thermostat est monté.</div>` : ''}
-    <div class="modes4" style="margin-top:12px">${c.modes.map(m => `<button class="${m.valeur === c.mode ? 'on' : ''}" aria-pressed="${m.valeur === c.mode}" data-a='${attrJ({ type: 'mode', piece: p.id, valeur: m.valeur })}'>${ic(m.icone || 'chauffage', 26, 'currentColor', 2)}<b>${esc(m.libelle)}</b><span>${esc(m.sous)}</span></button>`).join('')}</div>
-    ${c.aide ? `<p class="explic">${esc(c.aide)}</p>` : ''}
-    ${pre ? '<p class="doux petit" style="margin-top:8px">La nuit, la maison préchauffe en heures creuses, puis revient au mode choisi.</p>' : ''}</section>`;
+    <div class="modes6">${c.modes.map(m => `<button class="${m.valeur === c.mode ? 'on' : ''}" aria-pressed="${m.valeur === c.mode}" data-a='${attrJ({ type: 'mode', piece: p.id, valeur: m.valeur })}'><b>${esc(m.libelle)}</b><span>${esc(m.sous)}</span></button>`).join('')}</div>
+    ${c.aide ? `<p class="explic">${esc(c.aide)}</p>` : ''}</section>`;
 }
 function cartePorte(p) {
   const o = p.porte.etat === 'ouverte', k = p.porte.etat === 'inconnu';
-  return `<div class="carte ligne">${ic('porte', 26, o ? '#B4561A' : '#2F6B4F')}<div style="flex:1"><b>${esc(p.porte.nom)}</b><div class="${o ? 'etat-ko' : k ? 'doux' : 'etat-on'}">${k ? 'État inconnu' : o ? 'Ouverte' : 'Fermée'}</div></div></div>`;
+  return carteInfo('porte', o ? '#B4561A' : '#2F6B4F', p.porte.nom, k ? 'État inconnu' : o ? 'Ouverte' : 'Fermée');
 }
 function carteVentilation(p) {
   const v = p.ventilation;
