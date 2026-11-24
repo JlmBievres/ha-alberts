@@ -174,7 +174,7 @@ def toutes_lampes(CFG):
 
 def entites(CFG):
     MC = CFG.get("maison_chauffage") or {}
-    ids = [MC.get("menu"), MC.get("chauffe_nuit"), CFG.get("veille_si_coupee")]
+    ids = [MC.get("menu"), CFG.get("veille_si_coupee")]
     ids += [CFG["meteo"].get(k) for k in ("entite", "vigilance", "temperature_exterieure", "humidite_exterieure", "risque_gel", "soleil")]
     for p in CFG["pieces"]:
         ids += [p.get("temperature"), p.get("humidite")]
@@ -241,6 +241,13 @@ def _lampes(p):
     return out
 
 
+# Fiche du guide ouverte par le picto (i) de chaque section, selon le type de pièce.
+# Une pièce peut les remplacer avec « guide: {chauffage: …, lumieres: …, ventilation: …, porte: …} ».
+GUIDE_DEFAUT = {"poele": {"chauffage": "poele-ecran"},
+                "convecteur": {"chauffage": "mozart-choisir"},
+                "non_pilote": {"chauffage": "mozart-choisir"}}
+
+
 def analyser(CFG):
     S, modes = CFG["seuils"], CFG["modes"]
     pieces = []
@@ -248,7 +255,8 @@ def analyser(CFG):
         t, h = num(p.get("temperature")), num(p.get("humidite"))
         d = {"id": p["id"], "nom": p["nom"], "type": p.get("type", "sans_chauffage"),
              "t": fmt(t), "h": None if h is None else f"{h:.0f} %", "humide": h is not None and h > S["humidite_max"],
-             "conseils": p.get("conseils") or []}
+             "conseils": p.get("conseils") or [],
+             "guide": dict(GUIDE_DEFAUT.get(p.get("type"), {}), **(p.get("guide") or {}))}
         c = p.get("convecteur")
         if c:
             mode, w = etat(c.get("mode")), num(c.get("puissance"))
@@ -305,12 +313,12 @@ def analyser(CFG):
                 v1, v2 = num(i["mesure"]), num(i.get("mesure2"))
                 txt = " · ".join(x for x in (f"{fmt(v1)} {i.get('unite', '')}" if v1 is not None else None,
                                              f"{fmt(v2, 0)} {i.get('unite2', '')}" if v2 is not None else None) if x) or "—"
-                infos.append({"nom": i["nom"], "icone": i.get("icone", ""), "texte": txt, "etat": "mesure", "aide": i.get("aide", "")})
+                infos.append({"nom": i["nom"], "icone": i.get("icone", ""), "texte": txt, "etat": "mesure", "aide": i.get("aide", ""), "guide": i.get("guide")})
             else:
                 st = etat(i["entite"])
                 e = "ko" if st in INDISPO else ("on" if st == "on" else "off")
                 txt = i.get("indispo", "Indisponible") if e == "ko" else i.get(e, "En marche" if e == "on" else "Arrêté")
-                infos.append({"nom": i["nom"], "icone": i.get("icone", ""), "texte": txt, "etat": e, "aide": i.get("aide", "")})
+                infos.append({"nom": i["nom"], "icone": i.get("icone", ""), "texte": txt, "etat": e, "aide": i.get("aide", ""), "guide": i.get("guide")})
         d["infos"] = infos
         po = p.get("porte")
         if po:
@@ -330,13 +338,12 @@ def analyser(CFG):
     if ext is None:
         ext = attr(M.get("entite"), "temperature")
     MC = CFG.get("maison_chauffage") or {}
-    menu, nuit = etat(MC.get("menu")), etat(MC.get("chauffe_nuit"))
+    menu = etat(MC.get("menu"))
     hext, gel = num(M.get("humidite_exterieure")), num(M.get("risque_gel"))
     vs = CFG.get("veille_si_coupee")
     return {"pieces": pieces,
             "veille": bool(vs) and etat(vs) != "on",
-            "maison_chauffage": {"options": list((MC.get("options") or {}).keys()), "mode": None if menu in INDISPO else menu,
-                                 "nuit": None if nuit in INDISPO else nuit == "on", "nuit_texte": MC.get("chauffe_nuit_texte", "")} if MC else None,
+            "maison_chauffage": {"options": list((MC.get("options") or {}).keys()), "mode": None if menu in INDISPO else menu} if MC else None,
             "exterieur": {"t": fmt(ext) if isinstance(ext, (int, float)) else None, "h": None if hext is None else f"{hext:.0f} %",
                           "gel": None if gel is None else round(gel),
                           "condition": CONDITIONS.get(etat(M.get("entite")), etat(M.get("entite"))), "lieu": M.get("lieu", "")}}
@@ -413,12 +420,6 @@ def action(CFG, q):
             if c and c.get("mode") and mode in (attr(c["mode"], "options") or [mode]):
                 ok &= service("select", "select_option", {"entity_id": c["mode"], "option": mode})
         return resultat(ok)
-
-    if T == "chauffe_nuit":
-        MC = CFG.get("maison_chauffage") or {}
-        if not MC.get("chauffe_nuit") or q.get("valeur") not in ("on", "off"):
-            return refuse()
-        return resultat(service("automation", "turn_on" if q["valeur"] == "on" else "turn_off", {"entity_id": MC["chauffe_nuit"]}))
 
     if T == "lampe":
         p, l = lampe_cfg(CFG, q.get("piece"), q.get("lampe"))

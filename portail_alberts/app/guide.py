@@ -73,10 +73,10 @@ def charger():
 
 
 def photo(nom):
-    """Photo d'une fiche : uniquement des noms simples dans le dossier photos/ du guide."""
+    """Image d'une fiche : uniquement des noms simples, dans le dossier images/ ou photos/ du guide."""
     if not re.fullmatch(r"[A-Za-z0-9_.-]+\.(jpg|jpeg|png|webp)", nom or ""):
         return None
-    for base in (CLONE / "photos", CONFIG / "photos"):
+    for base in (CLONE / "images", CLONE / "photos", CONFIG / "images", CONFIG / "photos"):
         f = base / nom
         if f.is_file():
             return f

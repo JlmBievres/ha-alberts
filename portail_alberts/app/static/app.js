@@ -198,10 +198,8 @@ function bandeVeille() {
 function chauffageMaison() {
   const M = S.etat.maison_chauffage;
   if (!M) return '';
-  return `<section class="chauffage-maison"><div class="titre"><b>Chauffage de toute la maison</b><span>Les 5 radiateurs. Pratique quand on sort</span></div>
-    <div class="segment">${M.options.map(o => `<button class="${o === M.mode ? 'on' : ''}" aria-pressed="${o === M.mode}" data-a='${attrJ({ type: 'maison_mode', valeur: o })}'>${esc(o === 'Eco' ? 'Éco' : o.replace(/ -(\d)/, ' −$1'))}</button>`).join('')}</div>
-    ${M.nuit === null ? '' : `<div class="nuit">${ic('lune', 20, '#3A6EA5')}<span><b>Chauffe de nuit</b><br><span class="doux">${esc(M.nuit_texte)}</span></span>
-      ${inter(M.nuit, 'Chauffe de nuit', { type: 'chauffe_nuit', valeur: M.nuit ? 'off' : 'on' }, ' bleu')}</div>`}</section>`;
+  return `<section class="chauffage-maison"><div class="titre"><b>Chauffage de toute la maison</b><span>Les 5 radiateurs. Pratique quand on sort</span></div>${aide('radiateurs-portail')}
+    <div class="segment">${M.options.map(o => `<button class="${o === M.mode ? 'on' : ''}" aria-pressed="${o === M.mode}" data-a='${attrJ({ type: 'maison_mode', valeur: o })}'>${esc(o === 'Eco' ? 'Éco' : o.replace(/ -(\d)/, ' −$1'))}</button>`).join('')}</div></section>`;
 }
 function accueil() {
   const E = S.etat, x = E.exterieur;
@@ -257,10 +255,10 @@ function vuePiece(id) {
   if (p.humide && p.ventilation) col.push(`<div class="important" style="border-left:6px solid var(--warn)"><b>Pièce humide (${esc(p.h)}).</b> Lancez la ventilation et laissez la porte ouverte.</div>`);
   if (p.chauffage?.type === 'poele') col.push(cartePoele(p));
   if (p.chauffage?.type === 'radiateur') col.push(carteRadiateur(p));
-  if (p.chauffage?.type === 'non_pilote') col.push(carteInfo('chauffage', '#3A6EA5', 'Radiateur pas encore piloté', 'Réglez-le directement sur l’appareil, avec sa molette.'));
+  if (p.chauffage?.type === 'non_pilote') col.push(carteInfo('chauffage', '#3A6EA5', 'Radiateur pas encore piloté', 'Réglez-le directement sur son boîtier.', p.guide.chauffage));
   if (p.ventilation) col.push(carteVentilation(p));
   if (p.porte) col.push(cartePorte(p));
-  p.infos.forEach(i => col.push(carteInfo(ICONE_INFO[i.icone] || 'info', i.etat === 'on' ? '#2F6B4F' : '#56656F', i.nom, i.texte + (i.aide ? ' — ' + i.aide : ''))));
+  p.infos.forEach(i => col.push(carteInfo(ICONE_INFO[i.icone] || 'info', i.etat === 'on' ? '#2F6B4F' : '#56656F', i.nom, i.texte + (i.aide ? ' — ' + i.aide : ''), i.guide)));
   if (p.conseils.length) col.push(`<div class="carte"><h2>Bon à savoir</h2><ul style="margin:0;padding-left:20px;line-height:1.6">${p.conseils.map(c => `<li>${esc(c)}</li>`).join('')}</ul></div>`);
   let gauche = panneauLumieres(p);
   if (p.lumiere.etat === 'none' && col.length) { gauche = col.shift(); col.push(panneauLumieres(p)); }
@@ -270,12 +268,12 @@ function vuePiece(id) {
      <style>@media (max-width:899px){#g-piece{grid-template-columns:minmax(0,1fr)!important}}</style>`;
 }
 const SUR = { convecteur: 'Pièce', poele: 'Pièce · avec poêle', sans_chauffage: 'Pièce · sans chauffage', non_pilote: 'Chambre', passage: 'Passage · éclairage automatique' };
-function carteInfo(icone, coul, titre, texte) {
-  return `<div class="carte ligne" style="align-items:flex-start">${ic(icone, 22, coul)}<div><b>${esc(titre)}</b><div class="doux petit">${esc(texte)}</div></div></div>`;
+function carteInfo(icone, coul, titre, texte, guide) {
+  return `<div class="carte ligne" style="align-items:flex-start">${ic(icone, 22, coul)}<div style="flex:1"><b>${esc(titre)}</b><div class="doux petit">${esc(texte)}</div></div>${aide(guide)}</div>`;
 }
 function panneauLumieres(p) {
   const L = p.lumiere;
-  if (L.etat === 'none') return carteInfo('ampoule', '#8A97A1', 'Pas de lumière pilotée', 'Utilisez les interrupteurs de la pièce.');
+  if (L.etat === 'none') return carteInfo('ampoule', '#8A97A1', 'Pas de lumière pilotée', 'Utilisez les interrupteurs de la pièce.', p.guide.lumieres);
   const on = L.etat === 'on', tous_ko = L.nb_indispo === L.nb;
   const scenes = p.scenes.map(g => `<div class="sous-titre">${esc(g.titre)}</div><div class="scenes">${g.liste.map(s =>
     `<button ${tous_ko ? 'disabled' : ''} data-a='${attrJ({ type: 'scene', piece: p.id, scene: s.id })}'>${esc(s.nom)}</button>`).join('')}</div>`).join('');
@@ -285,7 +283,7 @@ function panneauLumieres(p) {
     lignes += ligneLampe(p, l);
   });
   const sous = tous_ko ? 'Indisponibles pour le moment' : (on ? `${L.nb_on} allumée${L.nb_on > 1 ? 's' : ''} sur ${L.nb}` : (L.nb > 1 ? 'Toutes éteintes' : 'Éteinte'));
-  return `<section class="panneau-lum"><div class="ligne"><div style="flex:1"><h2>Lumières</h2><div class="sous">${sous}${L.nb_indispo && !tous_ko ? ` · ${L.nb_indispo} indisponible${L.nb_indispo > 1 ? 's' : ''}` : ''}</div></div>
+  return `<section class="panneau-lum"><div class="ligne"><div style="flex:1"><h2 class="avec-aide">Lumières${aide(p.guide.lumieres)}</h2><div class="sous">${sous}${L.nb_indispo && !tous_ko ? ` · ${L.nb_indispo} indisponible${L.nb_indispo > 1 ? 's' : ''}` : ''}</div></div>
     ${tous_ko ? '' : inter(on, 'Toute la pièce', { type: 'piece_lumiere', piece: p.id, valeur: on ? 'off' : 'on' }, ' grand')}</div>
     ${tous_ko && S.etat.veille ? '<p class="petit" style="color:#6B5A1E;margin:0">La maison est en veille : l’éclairage revient à la mise en route.</p>' : ''}
     ${scenes}${lignes}</section>`;
@@ -304,26 +302,26 @@ function ligneLampe(p, l) {
 }
 function cartePoele(p) {
   const c = p.chauffage;
-  return `<section class="poele"><div class="ligne">${ic('flamme', 26, '#7A4E24')}<h2 style="flex:1">Poêle</h2><span class="pil${c.etat === 'on' ? '' : ' gris'}">${esc(c.libelle)}</span></div>
-    <div>${c.etat === 'off' ? 'Sa prise est coupée quand la maison est vide. ' : ''}Il se règle sur sa console. Remplissez-le et nettoyez-le tous les deux jours, poêle froid.</div>
-    <div class="boutons"><a class="bouton poele" href="#/guide/nettoyer">Nettoyage pas à pas</a><a class="bouton" href="#/guide/alarme">Le poêle est en alarme</a></div></section>`;
+  return `<section class="poele"><div class="ligne">${ic('flamme', 26, '#7A4E24')}<h2 style="flex:1">Poêle</h2><span class="pil${c.etat === 'on' ? '' : ' gris'}">${esc(c.libelle)}</span>${aide(p.guide.chauffage)}</div>
+    <div>${c.etat === 'off' ? 'Sa prise est coupée quand la maison est vide. ' : ''}Il se règle sur son écran. Remplissez-le et nettoyez-le tous les deux jours, poêle froid.</div>
+    <div class="boutons"><a class="bouton poele" href="#/guide/poele-nettoyage">Nettoyage pas à pas</a><a class="bouton" href="#/depannage/poele">Le poêle ne chauffe pas</a></div></section>`;
 }
 function carteRadiateur(p) {
   const c = p.chauffage;
-  if (!c.dispo) return `<section class="carte radiateur"><h2>Chauffage</h2><p class="etat-ko">Le radiateur ne répond pas. Vérifiez qu’il est sous tension.</p></section>`;
-  return `<section class="carte radiateur"><div class="ligne" style="flex-wrap:wrap"><h2 style="flex:1;margin:0">Chauffage</h2>${pastille(c.etat, DIAG[c.diag] || DIAG.arret).replace('class="pastille"', 'class="pastille grande"')}</div>
-    ${c.panne ? `<div class="important" style="margin-top:10px"><b>La pièce reste froide.</b> Vérifiez que le sélecteur du radiateur est sur la position pilotée et que son thermostat est monté.</div>` : ''}
+  if (!c.dispo) return `<section class="carte radiateur"><h2 class="avec-aide">Chauffage${aide(p.guide.chauffage)}</h2><p class="etat-ko">Le radiateur ne répond pas. Vérifiez qu’il est sous tension.</p></section>`;
+  return `<section class="carte radiateur"><div class="ligne" style="flex-wrap:wrap"><h2 style="flex:1;margin:0">Chauffage</h2>${pastille(c.etat, DIAG[c.diag] || DIAG.arret).replace('class="pastille"', 'class="pastille grande"')}${aide(p.guide.chauffage)}</div>
+    ${c.panne ? `<div class="important" style="margin-top:10px"><b>La pièce reste froide.</b> Vérifiez que le radiateur est en mode piloté (pictogramme maison) et que sa consigne est assez haute. Touchez ⓘ pour la marche à suivre.</div>` : ''}
     <div class="modes6">${c.modes.map(m => `<button class="${m.valeur === c.mode ? 'on' : ''}" aria-pressed="${m.valeur === c.mode}" data-a='${attrJ({ type: 'mode', piece: p.id, valeur: m.valeur })}'><b>${esc(m.libelle)}</b><span>${esc(m.sous)}</span></button>`).join('')}</div>
     ${c.aide ? `<p class="explic">${esc(c.aide)}</p>` : ''}</section>`;
 }
 function cartePorte(p) {
   const o = p.porte.etat === 'ouverte', k = p.porte.etat === 'inconnu';
-  return carteInfo('porte', o ? '#B4561A' : '#2F6B4F', p.porte.nom, k ? 'État inconnu' : o ? 'Ouverte' : 'Fermée');
+  return carteInfo('porte', o ? '#B4561A' : '#2F6B4F', p.porte.nom, k ? 'État inconnu' : o ? 'Ouverte' : 'Fermée', p.guide.porte);
 }
 function carteVentilation(p) {
   const v = p.ventilation;
   const etat = v.ko ? '<span class="etat-ko">Ne répond pas</span>' : v.on ? `<span class="etat-on">En marche${v.reste ? ', maintenue encore ' + Math.ceil(v.reste / 60) + ' min' : ''}</span>` : '<span class="etat-off">Arrêtée</span>';
-  return `<div class="carte"><div class="ligne"><div style="flex:1"><h2 style="margin:0">Ventilation</h2>${etat}</div>
+  return `<div class="carte"><div class="ligne"><div style="flex:1"><h2 style="margin:0">Ventilation</h2>${etat}</div>${aide(p.guide.ventilation)}
     ${inter(v.on, 'Ventilation', { type: 'ventilation', piece: p.id, valeur: v.on ? 'off' : 'on' }, ' vert')}</div>
     <div class="doux petit" style="margin:6px 0 10px">${esc(v.arret_auto)}</div>
     <button class="bouton" data-a='${attrJ({ type: 'ventilation', piece: p.id, valeur: 'maintien' })}'>Maintenir ${v.maintien_min} min</button></div>`;
@@ -384,6 +382,10 @@ async function vueMeteo() {
 }
 
 // ------------------------------------------------------------------ guide
+function aide(id) {
+  const f = id && toutesFiches(S.guide).find(x => x.id === id);
+  return f ? `<a class="aide-guide" href="#/guide/${esc(id)}" aria-label="Guide : ${esc(f.titre)}" title="Guide : ${esc(f.titre)}">${ic('info', 22, 'currentColor', 2.2)}</a>` : '';
+}
 function toutesFiches(G) { return (G?.themes || []).flatMap(t => (t.fiches || []).map(f => Object.assign({ theme: t.titre, couleur: t.couleur }, f))); }
 async function vueGuide(id) {
   const G = await chargerGuide();
@@ -414,10 +416,11 @@ function rendreListeGuide() {
 }
 function fiche(f, fiches) {
   const voir = (f.voir_aussi || []).map(id => fiches.find(x => x.id === id)).filter(Boolean);
+  const img = f.image || f.photo;
   return `<article class="carte"><span class="doux petit gras" style="color:${esc(f.couleur || '')}">${esc(f.theme)}</span><h2 style="font-size:26px;margin:2px 0 8px">${esc(f.titre)}</h2>
     ${f.duree ? `<span class="chip">${esc(f.duree)}</span>` : ''}
-    ${f.photo ? `<img class="photo" style="margin-top:12px" src="/guide/photos/${encodeURIComponent(f.photo)}" alt="${esc(f.titre)}">` : ''}
-    <ol class="etapes" style="margin-top:10px">${(f.etapes || []).map(e => `<li>${esc(e)}</li>`).join('')}</ol>
+    ${img ? `<figure class="fig-fiche"><img class="photo" src="/guide/photos/${encodeURIComponent(img)}" alt="${esc(f.legende || f.titre)}" onerror="this.parentNode.remove()">${f.legende ? `<figcaption class="doux petit">${esc(f.legende)}</figcaption>` : ''}</figure>` : ''}
+    <ol class="etapes" style="margin-top:10px">${(f.etapes || []).map(e => `<li>${esc(String(e).replace(/^\d+\.\s+/, ''))}</li>`).join('')}</ol>
     ${f.important ? `<div class="important" style="margin-top:10px"><b>Important :</b> ${esc(f.important)}</div>` : ''}
     ${voir.length ? `<h3 style="margin:16px 0 6px">Voir aussi</h3><div class="boutons">${voir.map(v => `<a class="bouton" href="#/guide/${esc(v.id)}">${esc(v.titre)}</a>`).join('')}</div>` : ''}</article>`;
 }
@@ -458,6 +461,8 @@ function depannageChoix(r) {
 window.rafraichir = rafraichir;
 (async () => {
   S.pile = 1;
+  chargerGuide().then(() => { if (!STATIQUES.has(route().r)) rendre(false); });
+  setInterval(chargerGuide, 600000);
   await rafraichir();
   rendre(true);
   setInterval(() => { if (!document.hidden && !S.occupe) rafraichir(); }, 3000);

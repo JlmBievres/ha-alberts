@@ -40,8 +40,6 @@ maison_chauffage:
     "Eco": Eco
     "Hors-gel": FrostProtection
     "Arrêt": "Off"
-  chauffe_nuit: automation.mise_en_chauffe_convecteurs_tarif_nuit   # 22:30 Confort -> 06:00 Arrêt
-  chauffe_nuit_texte: "22 h 30 → 6 h"
 
 # Maison en veille : prise qui alimente le pont Hue et la télévision (coupée quand la maison est vide)
 veille_si_coupee: switch.prise_television_switch_3
@@ -191,12 +189,13 @@ pieces:
       interrupteur: switch.convecteur_atelier
     lampes: []
     infos:
-      - {nom: "Chauffe-eau", icone: goutte, entite: switch.atelier_chauffe_eau, on: "Mode nuit", off: "Arrêté", indispo: "Boîtier Tydom coupé",
+      - {nom: "Chauffe-eau", icone: goutte, entite: switch.atelier_chauffe_eau, on: "Mode nuit", off: "Arrêté", indispo: "Boîtier Tydom coupé", guide: eau,
          aide: "En mode nuit, le ballon chauffe aux heures creuses."}
 
   - id: sdb
     nom: Salle de bain cave
     type: convecteur
+    guide: {chauffage: seche-serviettes, lumieres: sdb, ventilation: sdb}   # fiches du guide (picto i)
     temperature: sensor.capteur_sdbcave_temperature
     humidite: sensor.capteur_sdbcave_humidity
     convecteur:
@@ -225,6 +224,7 @@ pieces:
   - id: escalier
     nom: Escalier
     type: passage
+    guide: {lumieres: escalier}
     lampes:
       - {id: escalier, nom: "Escalier", note: "2 lampes", entite: light.escalier, minuterie_min: 10}
     conseils:

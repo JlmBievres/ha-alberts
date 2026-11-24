@@ -3,7 +3,7 @@
 ## Portail Les Alberts (0.4)
 Portail voyageurs pour tablette murale et smartphone, sur le réseau local :
 pièces à jour (température, humidité, chauffage, lumières, portes), scènes Hue,
-lampe par lampe, chauffage de toute la maison (menu Fil pilote) et chauffe de nuit,
+lampe par lampe, chauffage de toute la maison (menu Fil pilote), picto (i) vers le guide dans chaque section des pièces,
 météo, guide, état des prises en lecture seule. Les entités suivent
 documentation/reference-portail-entites.md (projet Claude).
 

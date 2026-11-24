@@ -7,7 +7,7 @@
 @font-face{font-family:Nunito;font-weight:900;font-display:swap;src:url(fonts/nunito-latin-900-normal.woff2) format("woff2")}
 
 :root{
-  --fond:#F3F6F8; --carte:#FFFFFF; --encre:#22303A; --doux:#56656F; --trait:#DCE3E8; --trait2:#EEF1F3;
+  --fond:#F3F6F8; --page:#E2E8ED; --carte:#FFFFFF; --encre:#22303A; --doux:#56656F; --trait:#DCE3E8; --trait2:#EEF1F3;
   --bleu:#1E7FAE; --bleu-ink:#0E3A4D; --bleu-tint:#E4F3FA; --radiateur:#3A6EA5; --radiateur-tint:#F1F5FA;
   --violet:#A3376F; --violet-ink:#5A1E43; --violet-tint:#F8E9F2;
   --jaune:#D9A400; --jaune-ink:#5C4300; --jaune-tint:#FFF4CC;
@@ -23,7 +23,7 @@
   --montagne:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 110'%3E%3Cpath fill='%23F3F6F8' d='M0 110C60 104 110 96 140 86L178 52L192 58L214 30L226 36L240 12L252 22L262 17L284 46L298 42L330 74C352 90 380 106 400 110Z'/%3E%3Cpath fill='%230A2230' fill-opacity='.13' d='M240 12L231 42L243 35L236 62L252 40L247 24ZM214 30L205 54L219 45ZM284 46L279 66L295 57ZM178 52L172 70L186 62Z'/%3E%3C/svg%3E");
 }
 *{box-sizing:border-box}
-html,body{margin:0;background:var(--fond);color:var(--encre);font:16px/1.45 Nunito,system-ui,sans-serif;-webkit-text-size-adjust:100%}
+html,body{margin:0;background:var(--page);color:var(--encre);font:16px/1.45 Nunito,system-ui,sans-serif;-webkit-text-size-adjust:100%}
 button,input{font:inherit;color:inherit}
 button{cursor:pointer}
 a{color:var(--bleu);font-weight:700}
@@ -320,7 +320,6 @@ table.convs a{color:var(--encre);text-decoration:none}
 .segment{flex:1;display:flex;gap:4px;background:var(--fond);border-radius:10px;padding:4px}
 .segment button{flex:1;border:0;border-radius:8px;padding:8px 6px;min-height:44px;background:transparent;font-weight:600}
 .segment button.on{background:var(--radiateur);color:#fff;font-weight:800}
-.chauffage-maison .nuit{display:flex;align-items:center;gap:10px;font-size:14px;line-height:1.2}
 .inter.bleu[aria-pressed=true]{background:var(--radiateur)}
 @media (max-width:1180px){.chauffage-maison{flex-wrap:wrap}.segment{flex-basis:100%;order:3}}
 @media (max-width:899px){.chauffage-maison{flex-direction:column;align-items:stretch;gap:10px}.segment{order:0;flex:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}}
@@ -335,3 +334,23 @@ table.convs a{color:var(--encre);text-decoration:none}
 .modes6 button.on{background:var(--radiateur);border-color:var(--radiateur);color:#fff;font-weight:800}
 .piece{gap:5px}
 .piece .ligne-ch{font-size:13px}
+
+/* 0.5 : cartes détachées du fond, carte pièce cliquable partout, picto guide */
+.carte,.piece,.chauffage-maison,.liste-fiches{border:1px solid #D3DCE3;box-shadow:0 1px 3px rgba(34,48,58,.07)}
+.piece{position:relative;cursor:pointer;transition:box-shadow .15s,border-color .15s}
+.piece a.nom::after{content:"";position:absolute;inset:0;border-radius:inherit}
+.piece .inter,.piece button{position:relative;z-index:1}
+.piece:hover{border-color:#A9BBC9;box-shadow:0 3px 10px rgba(34,48,58,.12)}
+.piece:active{transform:scale(.99)}
+.piece a.nom:focus-visible{outline:none}
+.piece:has(a.nom:focus-visible){outline:3px solid var(--bleu,#3A6EA5);outline-offset:2px}
+.aide-guide{display:inline-flex;align-items:center;justify-content:center;flex:none;width:40px;height:40px;margin:-8px -8px -8px 4px;border-radius:50%;color:#3A6EA5;text-decoration:none}
+.aide-guide:hover,.aide-guide:focus-visible{background:#E4EEF7}
+h2.avec-aide{display:flex;align-items:center;gap:6px}
+h2.avec-aide .aide-guide{margin:-8px 0}
+.chauffage-maison .aide-guide{margin:0 0 0 auto}
+.fig-fiche{margin:12px 0 0}
+.fig-fiche img{max-width:100%;border-radius:8px;display:block}
+.fig-fiche figcaption{margin-top:4px}
+.chauffage-maison{position:relative}
+@media (max-width:899px){.chauffage-maison .aide-guide{position:absolute;top:8px;right:8px;margin:0}.chauffage-maison .titre{padding-right:36px}}

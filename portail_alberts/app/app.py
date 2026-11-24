@@ -18,7 +18,7 @@ import guide
 import ha
 import maison
 
-VERSION = "0.4.0"
+VERSION = "0.5.0"
 ICI = Path(__file__).parent
 STATIC = ICI / "static"
 maison.DEMO = os.environ.get("DEMO") == "1"
