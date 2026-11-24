@@ -386,33 +386,59 @@ function aide(id) {
   const f = id && toutesFiches(S.guide).find(x => x.id === id);
   return f ? `<a class="aide-guide" href="#/guide/${esc(id)}" aria-label="Guide : ${esc(f.titre)}" title="Guide : ${esc(f.titre)}">${ic('info', 22, 'currentColor', 2.2)}</a>` : '';
 }
-function toutesFiches(G) { return (G?.themes || []).flatMap(t => (t.fiches || []).map(f => Object.assign({ theme: t.titre, couleur: t.couleur }, f))); }
+function toutesFiches(G) { return (G?.themes || []).flatMap(t => (t.fiches || []).map(f => Object.assign({ theme: t.titre, couleur: t.couleur, themeId: t.id }, f))); }
+// Icônes des grands thèmes du guide (trait, couleur du thème)
+const ICONES_THEME = {
+  arriver: '<circle cx="15" cy="9" r="4"/><path d="M12 12 4 20M6.5 17.5l2 2M9 15l2 2"/>',
+  poeles: '<path d="M12 3c1 3 5 5 5 10a5 5 0 0 1-10 0c0-3 2-4 2-6 1 1 2 2 2 3 0-2 0-5 1-7z"/>',
+  radiateurs: '<rect x="4" y="5" width="16" height="12" rx="2"/><path d="M8 8v6M12 8v6M16 8v6M7 17v3M17 17v3"/>',
+  energie: '<path d="M13 3 5 14h6l-1 7 8-11h-6z"/>',
+  vivre: '<path d="M4 11 12 4l8 7v9H4z"/><path d="M10 20v-5h4v5"/>',
+  autour: '<path d="M12 21s-6-6-6-11a6 6 0 0 1 12 0c0 5-6 11-6 11z"/><circle cx="12" cy="10" r="2"/>',
+  partir: '<path d="M10 4H5v16h5M14 8l4 4-4 4M18 12H9"/>',
+  probleme: '<path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h.01"/>',
+  livre: '<path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/>'
+};
+const icTheme = (id, c = 'currentColor', t = 24) => `<svg width="${t}" height="${t}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONES_THEME[id] || ICONES_THEME.livre}</svg>`;
+const nbFiches = n => `${n} fiche${n > 1 ? 's' : ''}`;
+const chevron = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8A97A1" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
+const ligneFiche = f => `<a href="#/guide/${esc(f.id)}"><span>${esc(f.titre)}</span>${f.duree ? `<span class="chip">${esc(f.duree)}</span>` : ''}${chevron}</a>`;
+
+// Guide : accueil en tuiles (un bouton par grand thème), puis liste des fiches du thème, puis la fiche.
 async function vueGuide(id) {
   const G = await chargerGuide();
   if (!G) return bandeau('jaune', 'Guide', 'Guide de la maison') + '<div class="carte doux">Guide indisponible.</div>';
-  const tel = matchMedia('(max-width:899px)').matches;
   const fiches = toutesFiches(G);
-  const f = fiches.find(x => x.id === id) || (!tel ? fiches[0] : null);
-  let h = bandeau('jaune', f && tel ? f.theme : 'Guide', f && tel ? esc(f.titre) : esc(G.titre || 'Guide de la maison'), { retour: f && tel ? '#/guide' : null });
-  if (!(f && tel)) {
-    h += `<div class="carte"><h2 style="margin-bottom:8px">Un problème ?</h2><div class="boutons">${(G.depannages || []).map(d => `<a class="bouton" href="#/depannage/${esc(d.id)}">${esc(d.titre)}</a>`).join('')}</div></div>`;
+  const theme = (G.themes || []).find(t => t.id === id);
+  if (theme) {
+    return bandeau('jaune', 'Guide', esc(theme.titre), { retour: '#/guide' }) +
+      `<nav class="fiches-theme" aria-label="Fiches : ${esc(theme.titre)}" style="--c:${esc(theme.couleur || 'var(--jaune)')}">${(theme.fiches || []).map(ligneFiche).join('')}</nav>`;
   }
-  const liste = `<div><label class="recherche">${ic('loupe', 20, '#56656F')}<span class="cache">Chercher dans le guide</span><input id="recherche" type="search" placeholder="Chercher : granulés, Linky, draps…" value="${esc(S.recherche)}"></label>
-    <nav class="liste-fiches" id="liste-fiches" aria-label="Fiches du guide" style="margin-top:10px">${listeFiches(G, f && f.id)}</nav></div>`;
-  if (tel) return h + (f ? fiche(f, fiches) : liste);
-  return h + `<div class="guide">${liste}${f ? fiche(f, fiches) : ''}</div>`;
+  if (id === 'depannages') {
+    return bandeau('jaune', 'Guide', 'Un problème ?', { retour: '#/guide' }) +
+      `<nav class="fiches-theme" aria-label="Dépannages" style="--c:var(--warn)">${(G.depannages || []).map(d => `<a href="#/depannage/${esc(d.id)}"><span>${esc(d.titre)}</span>${chevron}</a>`).join('')}</nav>`;
+  }
+  const f = fiches.find(x => x.id === id);
+  if (f) return bandeau('jaune', 'Guide', esc(f.theme), { retour: '#/guide/' + encodeURIComponent(f.themeId) }) + fiche(f, fiches);
+  return bandeau('jaune', 'Guide', esc(G.titre || 'Guide de la maison')) +
+    `<label class="recherche">${ic('loupe', 20, '#56656F')}<span class="cache">Chercher dans le guide</span><input id="recherche" type="search" placeholder="Chercher : granulés, Linky, draps…" value="${esc(S.recherche)}"></label>
+    <div id="liste-fiches" style="margin-top:12px">${listeFiches(G)}</div>`;
 }
-function listeFiches(G, actif) {
+function listeFiches(G) {
   const q = S.recherche.trim().toLowerCase();
-  return (G.themes || []).map(t => {
-    const fs = (t.fiches || []).filter(f => !q || (f.titre + ' ' + (f.etapes || []).join(' ')).toLowerCase().includes(q));
-    if (!fs.length) return '';
-    return `<h3 style="color:${esc(t.couleur || 'var(--doux)')}">${esc(t.titre)}</h3>${fs.map(f => `<a href="#/guide/${esc(f.id)}" class="${f.id === actif ? 'on' : ''}">${esc(f.titre)}</a>`).join('')}`;
-  }).join('') || '<p class="doux" style="padding:12px 16px">Aucune fiche ne correspond.</p>';
+  if (!q) {
+    const nbDep = (G.depannages || []).length;
+    return `<div class="tuiles-guide">${(G.themes || []).map(t => `<a class="tuile-theme" href="#/guide/${esc(t.id)}" style="--c:${esc(t.couleur || 'var(--jaune)')}">
+      <span class="pastille">${icTheme(t.id)}</span><span><b>${esc(t.titre)}</b><small>${nbFiches((t.fiches || []).length)}</small></span></a>`).join('')}
+      ${nbDep ? `<a class="tuile-theme probleme" href="#/guide/depannages"><span class="pastille">${icTheme('probleme', '#fff')}</span><span><b>Un problème ?</b><small>${nbDep} dépannage${nbDep > 1 ? 's' : ''}</small></span></a>` : ''}</div>`;
+  }
+  const r = toutesFiches(G).filter(f => (f.titre + ' ' + (f.etapes || []).join(' ') + ' ' + (f.important || '')).toLowerCase().includes(q));
+  return r.length ? `<nav class="fiches-theme" aria-label="Résultats">${r.map(f => `<a href="#/guide/${esc(f.id)}" style="--c:${esc(f.couleur || 'var(--jaune)')}"><span>${esc(f.titre)}<small>${esc(f.theme)}</small></span>${chevron}</a>`).join('')}</nav>`
+    : '<div class="carte doux">Aucune fiche ne correspond.</div>';
 }
 function rendreListeGuide() {
   const l = $('#liste-fiches');
-  if (l && S.guide) l.innerHTML = listeFiches(S.guide, route().a);
+  if (l && S.guide) l.innerHTML = listeFiches(S.guide);
 }
 function fiche(f, fiches) {
   const voir = (f.voir_aussi || []).map(id => fiches.find(x => x.id === id)).filter(Boolean);

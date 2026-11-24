@@ -354,3 +354,20 @@ h2.avec-aide .aide-guide{margin:-8px 0}
 .fig-fiche figcaption{margin-top:4px}
 .chauffage-maison{position:relative}
 @media (max-width:899px){.chauffage-maison .aide-guide{position:absolute;top:8px;right:8px;margin:0}.chauffage-maison .titre{padding-right:36px}}
+
+/* ---------- guide : tuiles par thème (maquette B) */
+.tuiles-guide{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+.tuile-theme{display:flex;flex-direction:column;align-items:flex-start;gap:10px;padding:14px;min-height:118px;box-sizing:border-box;border-radius:12px;background:#fff;color:var(--encre);text-decoration:none;border:1px solid #D3DCE3;box-shadow:inset 0 4px 0 var(--c),0 1px 3px rgba(34,48,58,.07)}
+.tuile-theme .pastille{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--c);background:color-mix(in srgb,var(--c) 13%,#fff)}
+.tuile-theme b{display:block;font-size:17px;font-weight:800;line-height:1.15}
+.tuile-theme small{display:block;font-size:13px;font-weight:600;color:var(--doux)}
+.tuile-theme:hover{box-shadow:inset 0 4px 0 var(--c),0 3px 10px rgba(34,48,58,.12)}
+.tuile-theme.probleme{background:var(--warn);border-color:var(--warn);color:#fff;box-shadow:none}
+.tuile-theme.probleme small{color:#fff}
+.tuile-theme.probleme .pastille{background:rgba(255,255,255,.18)}
+.fiches-theme{background:#fff;border-radius:12px;overflow:hidden;border:1px solid #D3DCE3;box-shadow:inset 4px 0 0 var(--c,var(--jaune))}
+.fiches-theme a{display:flex;align-items:center;gap:10px;padding:12px 16px 12px 20px;min-height:52px;box-sizing:border-box;border-bottom:1px solid var(--trait2);color:var(--encre);text-decoration:none;font-size:17px;font-weight:700}
+.fiches-theme a:last-child{border-bottom:0}
+.fiches-theme a>span:first-child{flex:1}
+.fiches-theme a small{display:block;font-size:13px;font-weight:600;color:var(--c,var(--doux))}
+.fiches-theme a:hover{background:var(--fond)}
